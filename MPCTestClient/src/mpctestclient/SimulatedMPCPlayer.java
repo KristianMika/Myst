@@ -10,6 +10,7 @@ import org.bouncycastle.math.ec.ECPoint;
 import ds.ov2.bignat.Bignat;
 import org.bouncycastle.math.ec.ECCurve;
 
+
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -30,11 +31,18 @@ class SimulatedMPCPlayer implements MPCPlayer {
     public BigInteger k_Bn;
     public ECPoint Ri_EC;
     public byte[] Ri_Hash;
+    public BigInteger e_BI;
 
     //For preloading
     public BigInteger k_Bn_pre;
     public ECPoint Ri_EC_pre;
     public byte[] Ri_Hash_pre;
+    
+    //Storing pubkeys
+    public byte[][] pub_key_hashes;
+    public byte[][] pub_keys;
+    
+    public ECPoint Yagg;
 
     public SimulatedMPCPlayer(short playerID, ECPoint G, BigInteger n, ECCurve curve) throws NoSuchAlgorithmException {
         this.playerID = playerID;
@@ -53,7 +61,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     //
     @Override
     public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
-        Bignat counter = Util.makeBignatFromValue(i);
+        Bignat counter = Util.makeBignatFromValue((int) i);
         ECPoint Rin = curve_G.multiply(new BigInteger(PRF(counter, this.secret_seed)));
         return Rin.getEncoded(false);
     }
@@ -75,17 +83,18 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public ECPoint GetAggregatedPubKey(short quorumIndex) {
-        return null;
+        return Yagg;
     }
 
     @Override
     public BigInteger GetE(short quorumIndex) {
-        return null;
+        return e_BI;
     }
 
     @Override
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerID) throws Exception {
-        // TODO: at the moment, simulated player performs nothing
+        pub_key_hashes = new byte[MPCGlobals.players.size() - 1][]; 
+        pub_keys =  new byte[MPCGlobals.players.size() - 1][];
         return true;
     }
 
@@ -103,7 +112,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean GenKeyPair(short quorumIndex) throws Exception {
-        //this.KeyGen();
+        this.KeyGen();
         return true;
     }
 
@@ -114,7 +123,13 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr) throws Exception {
-        // TODO: store pub key hash optionally
+        if (playerIndex > this.GetPlayerIndex(quorumIndex))
+        {
+            pub_key_hashes[playerIndex - 1] = hash_arr;
+        } else {
+            pub_key_hashes[playerIndex] = hash_arr;
+        }
+        
         return true;
     }
 
@@ -125,17 +140,31 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
+        if (playerIndex > this.GetPlayerIndex(quorumIndex)){
+            pub_keys[playerIndex - 1] = pub_arr;
+        } else {
+            pub_keys[playerIndex] = pub_arr;
+        }
         return true;
     }
 
     @Override
     public boolean RetrieveAggPubKey(short quorumIndex) throws Exception {
+        Yagg = curve.getInfinity();
+        for (byte[] pubkey : pub_keys){
+            Yagg = Yagg.add(Util.ECPointDeSerialization(curve, pubkey, 0)); 
+        }
+        Yagg = Yagg.add(pub_key_EC);
         return true;
     }
-
+    
     @Override
-    public byte[] Encrypt(short quorumIndex, byte[] plaintext) throws Exception {
-        return null; // implement encryption for simulated players 
+    public byte[] Encrypt(short quorumIndex, byte[] plaintext) throws Exception { 
+        SecureRandom rnd = new SecureRandom();
+        BigInteger rand_r = new BigInteger(256, rnd);
+        MPCGlobals.c1 = curve_G.multiply(rand_r);
+        MPCGlobals.c2 = MPCGlobals.AggPubKey.multiply(rand_r).add(Util.ECPointDeSerialization(curve, plaintext, 0));
+        return Util.joinArray(MPCGlobals.c1.getEncoded(false), MPCGlobals.c2.getEncoded(false));
     }
 
     @Override
@@ -166,25 +195,27 @@ class SimulatedMPCPlayer implements MPCPlayer {
             // If true, don't generate random key, but use fixed one instead
             priv_key_BI = new BigInteger("B346675518084623BC111CC53FF615B152A3F6D1585278370FA1BA0EA160237E".getBytes());
         }
+        
         pub_key_EC = curve_G.multiply(priv_key_BI);
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.update(pub_key_EC.getEncoded(false));
         pub_key_Hash = md.digest();
     }
-
+                            
     private BigInteger Sign(Bignat i, ECPoint R_EC, byte[] plaintext) throws NoSuchAlgorithmException {
         //Gen e (e will be the same in all signature shares)
         MessageDigest md = MessageDigest.getInstance("SHA-256");
+        
         //System.out.println("Simulated: Plaintext:" + client.bytesToHex(plaintext));
         //System.out.println("Simulated: Ri,n:     " + client.bytesToHex(R_EC.getEncoded(false)));
         md.update(plaintext);
         md.update(R_EC.getEncoded(false)); // R_EC is the sum of the r_i's
         byte[] e = md.digest();
-        BigInteger e_BI = new BigInteger(1, e);
-
+        e_BI = new BigInteger(1, e);
+        
         //Gen s_i
+        
         this.k_Bn = new BigInteger(PRF(i, secret_seed));
-
         BigInteger s_i_BI = this.k_Bn.subtract(e_BI.multiply(this.priv_key_BI));
         s_i_BI = s_i_BI.mod(curve_n);
 

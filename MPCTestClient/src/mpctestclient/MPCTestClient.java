@@ -43,7 +43,7 @@ import mpc.jcmathlib.*;
 public class MPCTestClient {
 
     public final static boolean _DEBUG = true;
-    public final static boolean _SIMULATOR = false;
+    public final static boolean _SIMULATOR = true;
     public final static boolean _PROFILE_PERFORMANCE = false;
     public final static boolean _FAIL_ON_ASSERT = true;
     public final static boolean _IS_BACKDOORED_EXAMPLE = false; // if true, applet is set into example "backdoored" state simulating compromised node with known key
@@ -77,8 +77,8 @@ public class MPCTestClient {
             buildPerfMapping();
 
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
-            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
-            runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+            runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
+            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1;
             //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
             runCfg.numPlayers = 4;
@@ -130,7 +130,7 @@ public class MPCTestClient {
         for (; cardID < runCfg.numPlayers; cardID++) {
             mpcGlobals.players.add(new SimulatedMPCPlayer(cardID, mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
         }
-
+        
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
             perfResults.clear();
             String logFileName = String.format("MPC_PERF_log_%d.csv", System.currentTimeMillis());
@@ -145,7 +145,7 @@ public class MPCTestClient {
                 String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
                 System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
+                
                 // Reset
                 operationName = "Reseting the card to an uninitialized state (INS_RESET)";
                 System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
@@ -187,7 +187,7 @@ public class MPCTestClient {
              elapsed += System.currentTimeMillis();
              System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed,  elapsed / (float) runCfg.numSingleOpRepeats);
              */
-
+                          
             System.out.print("Disconnecting from card...");
             for (MPCPlayer player : mpcGlobals.players) {
                 player.disconnect();
@@ -376,14 +376,17 @@ public class MPCTestClient {
             }
         }
 
-        // Retrieve card's Public Key
+        // Retrieve card's Public Key; Edit: " + sets AggPubKey"
+        MPCGlobals.AggPubKey = MPCGlobals.curve.getInfinity();
         for (MPCPlayer player : mpcGlobals.players) {
             operationName = "Retrieve Pub Key (INS_KEYGEN_RETRIEVE_PUBKEY)";
             ECPoint pub_share_EC = Util.ECPointDeSerialization(mpcGlobals.curve, player.RetrievePubKey(QUORUM_INDEX), 0);
+            MPCGlobals.AggPubKey = MPCGlobals.AggPubKey.add(pub_share_EC);
             System.out.format(format, operationName, Util.bytesToHex(pub_share_EC.getEncoded(false)));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
+        
         // Push all public keys
         operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
         for (MPCPlayer playerTarget : mpcGlobals.players) {
@@ -396,13 +399,21 @@ public class MPCTestClient {
             }
         }
 
-        // Retrieve Aggregated Y
+        // Retrieve Aggregated Y; edit: " validates returned AggPubKeys "
         for (MPCPlayer player : mpcGlobals.players) {
+            operationName = "Get Aggregated Key (INS_KEYGEN_GET_AGG_PUBKEY)";
+            
+            //When runing client without a physical card, none of the simulated cards is an instance of CardMPCPlayer
+            /*
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
             System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX));
             if (player instanceof CardMPCPlayer) {
                 mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX);
             }
+            */
+            player.RetrieveAggPubKey(QUORUM_INDEX); //computes Aggr Pubkey
+            System.out.format(format, operationName, mpcGlobals.AggPubKey.equals(player.GetAggregatedPubKey(QUORUM_INDEX)));
+
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
@@ -428,21 +439,21 @@ public class MPCTestClient {
 
         Long combinedTimeDecrypt = combinedTime - m_lastTransmitTime; // Remove encryption time from combined decryption time
         writePerfLog("* Combined Encrypt time", combinedTime, perfResults, perfFile);
-
+        
         //
         // Decrypt EC Point
         //
         if (ciphertext.length > 0) {
             ECPoint c2 = Util.ECPointDeSerialization(mpcGlobals.curve, ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
-
+            
             // Combine all decryption shares (x_ic) (except for card which is added below) 
             ECPoint xc1_EC = mpcGlobals.curve.getInfinity();
             for (MPCPlayer player : mpcGlobals.players) {
-                System.out.printf("\n");
+                //System.out.printf("\n");
                 operationName = "Decrypt (INS_DECRYPT)";
                 byte[] xc1_share = player.Decrypt(QUORUM_INDEX, ciphertext);
                 xc1_EC = xc1_EC.add(Util.ECPointDeSerialization(mpcGlobals.curve, xc1_share, 0).negate()); // combine share from player
-
+      
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                 combinedTime += m_lastTransmitTime;
                 combinedTimeDecrypt += m_lastTransmitTime;
@@ -452,7 +463,7 @@ public class MPCTestClient {
             }
 
             ECPoint plaintext_EC = c2.add(xc1_EC);
-
+        
             System.out.format(format, "Decryption successful?:",
                     Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
             if (_FAIL_ON_ASSERT) {
@@ -521,7 +532,7 @@ public class MPCTestClient {
     static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
         // Sign EC Point
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
-
+        
         if (!playersList.isEmpty()) {
             BigInteger sum_s_BI = new BigInteger("0");
             BigInteger card_e_BI = new BigInteger("0");
@@ -537,6 +548,14 @@ public class MPCTestClient {
                 }
             }
             System.out.println(String.format("Sign: %s", Util.bytesToHex(sum_s_BI.toByteArray())));
+            
+            //
+            //Verification
+            //
+            System.out.println();
+            String operationName = "Signature verification successful?";
+
+            System.out.format(format, operationName, Verify(plaintext_sig, mpcGlobals.AggPubKey, sum_s_BI, card_e_BI));
         }
     }
 
@@ -553,7 +572,6 @@ public class MPCTestClient {
         byte[] ev = md.digest();
         BigInteger ev_bi = new BigInteger(1, ev);
         ev_bi = ev_bi.mod(mpcGlobals.n);
-
         ///System.out.println(bytesToHex(e_bi.toByteArray()));		
         //System.out.println(bytesToHex(ev_bi.toByteArray()));
         if (_FAIL_ON_ASSERT) {
