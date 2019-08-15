@@ -9,7 +9,13 @@
 <!-- in the project's Project Properties dialog box.-->
 <project name="MPCClient" default="default" basedir=".">
     <description>Builds, tests, and runs the project MPCClient.</description>
+    <jar destfile="MPCTestClient.jar" includes="*.class">
+      <manifest>
+        <attribute name="Main-Class" value="MPCTestClient" /> 
+      </manifest>
+</jar>
     <import file="nbproject/build-impl.xml"/>
+   <!--  <import file="nbproject/build-impl.xml"/> -->
     <!--
     There exist several targets which are by default empty and which can be 
     used for execution of your tasks. These targets are usually executed 

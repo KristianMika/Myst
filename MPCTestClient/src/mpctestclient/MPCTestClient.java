@@ -18,7 +18,6 @@ import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECFieldElement;
 import org.bouncycastle.math.ec.ECPoint;
 
-import ds.ov2.bignat.Bignat;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -130,7 +129,7 @@ public class MPCTestClient {
         for (; cardID < runCfg.numPlayers; cardID++) {
             mpcGlobals.players.add(new SimulatedMPCPlayer(cardID, mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
         }
-        
+
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
             perfResults.clear();
             String logFileName = String.format("MPC_PERF_log_%d.csv", System.currentTimeMillis());
@@ -187,7 +186,7 @@ public class MPCTestClient {
              elapsed += System.currentTimeMillis();
              System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed,  elapsed / (float) runCfg.numSingleOpRepeats);
              */
-                          
+
             System.out.print("Disconnecting from card...");
             for (MPCPlayer player : mpcGlobals.players) {
                 player.disconnect();
@@ -376,17 +375,14 @@ public class MPCTestClient {
             }
         }
 
-        // Retrieve card's Public Key; Edit: " + sets AggPubKey"
-        MPCGlobals.AggPubKey = MPCGlobals.curve.getInfinity();
+        // Retrieve card's Public Key
         for (MPCPlayer player : mpcGlobals.players) {
             operationName = "Retrieve Pub Key (INS_KEYGEN_RETRIEVE_PUBKEY)";
             ECPoint pub_share_EC = Util.ECPointDeSerialization(mpcGlobals.curve, player.RetrievePubKey(QUORUM_INDEX), 0);
-            MPCGlobals.AggPubKey = MPCGlobals.AggPubKey.add(pub_share_EC);
             System.out.format(format, operationName, Util.bytesToHex(pub_share_EC.getEncoded(false)));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
-        
         // Push all public keys
         operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
         for (MPCPlayer playerTarget : mpcGlobals.players) {
@@ -399,25 +395,21 @@ public class MPCTestClient {
             }
         }
 
-        // Retrieve Aggregated Y; edit: " validates returned AggPubKeys "
+        // Retrieve Aggregated Y
         for (MPCPlayer player : mpcGlobals.players) {
-            operationName = "Get Aggregated Key (INS_KEYGEN_GET_AGG_PUBKEY)";
-            
-            //When runing client without a physical card, none of the simulated cards is an instance of CardMPCPlayer
-            /*
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
             System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX));
             if (player instanceof CardMPCPlayer) {
                 mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX);
             }
-            */
-            player.RetrieveAggPubKey(QUORUM_INDEX); //computes Aggr Pubkey
-            System.out.format(format, operationName, mpcGlobals.AggPubKey.equals(player.GetAggregatedPubKey(QUORUM_INDEX)));
-
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
-
+        
+        //When running a simulator without a single physical card, Yagg has to be set by one of the simulated players
+        if (mpcGlobals.AggPubKey == null){
+            mpcGlobals.AggPubKey = mpcGlobals.players.get(0).GetAggregatedPubKey(QUORUM_INDEX);
+        }
     }
 
     static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
@@ -439,13 +431,13 @@ public class MPCTestClient {
 
         Long combinedTimeDecrypt = combinedTime - m_lastTransmitTime; // Remove encryption time from combined decryption time
         writePerfLog("* Combined Encrypt time", combinedTime, perfResults, perfFile);
-        
+
         //
         // Decrypt EC Point
         //
         if (ciphertext.length > 0) {
             ECPoint c2 = Util.ECPointDeSerialization(mpcGlobals.curve, ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
-            
+
             // Combine all decryption shares (x_ic) (except for card which is added below) 
             ECPoint xc1_EC = mpcGlobals.curve.getInfinity();
             for (MPCPlayer player : mpcGlobals.players) {
@@ -453,7 +445,7 @@ public class MPCTestClient {
                 operationName = "Decrypt (INS_DECRYPT)";
                 byte[] xc1_share = player.Decrypt(QUORUM_INDEX, ciphertext);
                 xc1_EC = xc1_EC.add(Util.ECPointDeSerialization(mpcGlobals.curve, xc1_share, 0).negate()); // combine share from player
-      
+
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                 combinedTime += m_lastTransmitTime;
                 combinedTimeDecrypt += m_lastTransmitTime;
@@ -463,7 +455,7 @@ public class MPCTestClient {
             }
 
             ECPoint plaintext_EC = c2.add(xc1_EC);
-        
+
             System.out.format(format, "Decryption successful?:",
                     Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
             if (_FAIL_ON_ASSERT) {
@@ -491,11 +483,6 @@ public class MPCTestClient {
      */
     static void PerformSignCache(ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
 
-        Bignat counter = new Bignat((short) 2, false);
-        Bignat one = new Bignat((short) 2, false);
-        one.one();
-        counter.one();
-
         for (short round = 1; round <= mpcGlobals.Rands.length; round++) {
             boolean bFirstPlayer = true;
             for (MPCPlayer player : playersList) {
@@ -506,7 +493,6 @@ public class MPCTestClient {
                     mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(Util.ECPointDeSerialization(mpcGlobals.curve, player.Gen_Rin(QUORUM_INDEX, round), 0));
                 }
             }
-            counter.add(one);
         }
         for (int round = 1; round <= mpcGlobals.Rands.length; round++) {
             System.out.format("Rands[%d]%s\n", round - 1, Util.bytesToHex(mpcGlobals.Rands[round - 1].getEncoded(false)));
@@ -532,7 +518,7 @@ public class MPCTestClient {
     static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
         // Sign EC Point
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
-        
+
         if (!playersList.isEmpty()) {
             BigInteger sum_s_BI = new BigInteger("0");
             BigInteger card_e_BI = new BigInteger("0");
@@ -560,7 +546,6 @@ public class MPCTestClient {
     }
 
     private static boolean Verify(byte[] plaintext, ECPoint pubkey, BigInteger s_bi, BigInteger e_bi) throws Exception {
-
         // Compute rv = sG+eY
         ECPoint rv_EC = mpcGlobals.G.multiply(s_bi); // sG
         rv_EC = rv_EC.add(pubkey.multiply(e_bi)); // +eY
@@ -572,8 +557,8 @@ public class MPCTestClient {
         byte[] ev = md.digest();
         BigInteger ev_bi = new BigInteger(1, ev);
         ev_bi = ev_bi.mod(mpcGlobals.n);
-        ///System.out.println(bytesToHex(e_bi.toByteArray()));		
-        //System.out.println(bytesToHex(ev_bi.toByteArray()));
+        //System.out.println(Util.bytesToHex(e_bi.toByteArray()));		
+        //System.out.println(Util.bytesToHex(ev_bi.toByteArray()));
         if (_FAIL_ON_ASSERT) {
             assert (e_bi.compareTo(ev_bi) == 0);
         }

@@ -23,7 +23,7 @@ hs_err_pid*
 
 /MPCTestClient/dist/
 /MPCTestClient/build/
-/MPCTestClient/nbproject/
+#/MPCTestClient/nbproject/
 /MPCTestClient/MPC_PERF_log_*
 
 /MPCTestClient/MPC_DETAILPERF_log_*
