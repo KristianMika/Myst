@@ -2,14 +2,18 @@ language: java
 
 jdk:
     - oraclejdk8
+    - openjdk11
 
 dist: trusty
 
 install: 
+    - jdk_switcher use openjdk11
     - cd MPCTestClient
     - ant -f build.xml -Dnb.internal.action.name=rebuild clean jar
+    - jdk_switcher use oraclejdk8
     - cd ../MPCApplet/ 
     - ant -f jcbuild.xml build
 
 script:
+    - jdk_switcher use openjdk11
     - java -jar MPCTestClient/nbdist/MPCTestClient.jar
