@@ -3,6 +3,8 @@ language: java
 jdk:
     - oraclejdk8
 
+dist: trusty
+
 install: 
     - cd MPCTestClient
     - ant -f build.xml -Dnb.internal.action.name=rebuild clean jar
