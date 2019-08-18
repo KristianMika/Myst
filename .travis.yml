@@ -14,9 +14,9 @@ before_install:
 
 install: 
     - cd MPCTestClient
-    - ant -f build.xml -Dnb.internal.action.name=rebuild clean jar
+    - ant
     - cd ../MPCApplet/ 
     - ant -f jcbuild.xml build
 
 script:
-    - java -jar MPCTestClient/nbdist/MPCTestClient.jar
+    - java -jar out/artifacts/MPCTestClient_jar/MPCTestClient.jar

@@ -1,74 +1,389 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- You may freely edit this file. See commented blocks below for -->
-<!-- some examples of how to customize the build. -->
-<!-- (If you delete it and reopen the project it will be recreated.) -->
-<!-- By default, only the Clean and Build commands use this build script. -->
-<!-- Commands such as Run, Debug, and Test only use this build script if -->
-<!-- the Compile on Save feature is turned off for the project. -->
-<!-- You can turn off the Compile on Save (or Deploy on Save) setting -->
-<!-- in the project's Project Properties dialog box.-->
-<project name="MPCClient" default="default" basedir=".">
-    <description>Builds, tests, and runs the project MPCClient.</description>
-    <jar destfile="MPCTestClient.jar" includes="*.class">
-      <manifest>
-        <attribute name="Main-Class" value="MPCTestClient" /> 
-      </manifest>
-</jar>
-    <import file="nbproject/build-impl.xml"/>
-   <!--  <import file="nbproject/build-impl.xml"/> -->
-    <!--
-    There exist several targets which are by default empty and which can be 
-    used for execution of your tasks. These targets are usually executed 
-    before and after some main targets. They are: 
-      -pre-init:                 called before initialization of project properties
-      -post-init:                called after initialization of project properties
-      -pre-compile:              called before javac compilation
-      -post-compile:             called after javac compilation
-      -pre-compile-single:       called before javac compilation of single file
-      -post-compile-single:      called after javac compilation of single file
-      -pre-compile-test:         called before javac compilation of JUnit tests
-      -post-compile-test:        called after javac compilation of JUnit tests
-      -pre-compile-test-single:  called before javac compilation of single JUnit test
-      -post-compile-test-single: called after javac compilation of single JUunit test
-      -pre-jar:                  called before JAR building
-      -post-jar:                 called after JAR building
-      -post-clean:               called after cleaning build products
-    (Targets beginning with '-' are not intended to be called on their own.)
-    Example of inserting an obfuscator after compilation could look like this:
-        <target name="-post-compile">
-            <obfuscate>
-                <fileset dir="${build.classes.dir}"/>
-            </obfuscate>
-        </target>
-    For list of available properties check the imported 
-    nbproject/build-impl.xml file. 
-    Another way to customize the build is by overriding existing main targets.
-    The targets of interest are: 
-      -init-macrodef-javac:     defines macro for javac compilation
-      -init-macrodef-junit:     defines macro for junit execution
-      -init-macrodef-debug:     defines macro for class debugging
-      -init-macrodef-java:      defines macro for class execution
-      -do-jar:                  JAR building
-      run:                      execution of project 
-      -javadoc-build:           Javadoc generation
-      test-report:              JUnit report generation
-    An example of overriding the target for project execution could look like this:
-        <target name="run" depends="MPCClient-impl.jar">
-            <exec dir="bin" executable="launcher.exe">
-                <arg file="${dist.jar}"/>
-            </exec>
-        </target>
-    Notice that the overridden target depends on the jar target and not only on 
-    the compile target as the regular run target does. Again, for a list of available 
-    properties which you can use, check the target you are overriding in the
-    nbproject/build-impl.xml file. 
-    -->
-
-          <target name="-post-jar">
-	     <!-- Copy newly build jar into test directory for simulator of smart cards-->
- <!-- 
-             <copy file="${basedir}/distMPCClient.jar" tofile="${basedir}/test/MPCClient.jar"/>
-             <copy file="${basedir}/dist/lib/jcardsim-2.2.2-all.jar" tofile="${basedir}/test/jcardsim-2.2.2-all.jar"/>
--->
-          </target>
+<project name="mpctestclient" default="all">
+  
+  
+  <property file="mpctestclient.properties"/>
+  <!-- Uncomment the following property if no tests compilation is needed -->
+  <!-- 
+  <property name="skip.tests" value="true"/>
+   -->
+  
+  <!-- Compiler options -->
+  
+  <property name="compiler.debug" value="on"/>
+  <property name="compiler.generate.no.warnings" value="off"/>
+  <property name="compiler.args" value=""/>
+  <property name="compiler.max.memory" value="700m"/>
+  <patternset id="ignored.files">
+    <exclude name="**/*.hprof/**"/>
+    <exclude name="**/*.pyc/**"/>
+    <exclude name="**/*.pyo/**"/>
+    <exclude name="**/*.rbc/**"/>
+    <exclude name="**/*.yarb/**"/>
+    <exclude name="**/*~/**"/>
+    <exclude name="**/.DS_Store/**"/>
+    <exclude name="**/.git/**"/>
+    <exclude name="**/.hg/**"/>
+    <exclude name="**/.svn/**"/>
+    <exclude name="**/CVS/**"/>
+    <exclude name="**/__pycache__/**"/>
+    <exclude name="**/_svn/**"/>
+    <exclude name="**/vssver.scc/**"/>
+    <exclude name="**/vssver2.scc/**"/>
+  </patternset>
+  <patternset id="library.patterns">
+    <include name="*.egg"/>
+    <include name="*.jar"/>
+    <include name="*.ear"/>
+    <include name="*.ane"/>
+    <include name="*.klib"/>
+    <include name="*.swc"/>
+    <include name="*.war"/>
+    <include name="*.zip"/>
+  </patternset>
+  <patternset id="compiler.resources">
+    <exclude name="**/?*.java"/>
+    <exclude name="**/?*.form"/>
+    <exclude name="**/?*.class"/>
+    <exclude name="**/?*.groovy"/>
+    <exclude name="**/?*.scala"/>
+    <exclude name="**/?*.flex"/>
+    <exclude name="**/?*.kt"/>
+    <exclude name="**/?*.clj"/>
+    <exclude name="**/?*.aj"/>
+  </patternset>
+  
+  <!-- JDK definitions -->
+  
+  <property name="jdk.bin.12" value="${jdk.home.12}/bin"/>
+  <path id="jdk.classpath.12">
+    <fileset dir="${jdk.home.12}">
+      <include name="../java-12-oracle!/java.base"/>
+      <include name="../java-12-oracle!/java.compiler"/>
+      <include name="../java-12-oracle!/java.datatransfer"/>
+      <include name="../java-12-oracle!/java.desktop"/>
+      <include name="../java-12-oracle!/java.instrument"/>
+      <include name="../java-12-oracle!/java.logging"/>
+      <include name="../java-12-oracle!/java.management"/>
+      <include name="../java-12-oracle!/java.management.rmi"/>
+      <include name="../java-12-oracle!/java.naming"/>
+      <include name="../java-12-oracle!/java.net.http"/>
+      <include name="../java-12-oracle!/java.prefs"/>
+      <include name="../java-12-oracle!/java.rmi"/>
+      <include name="../java-12-oracle!/java.scripting"/>
+      <include name="../java-12-oracle!/java.se"/>
+      <include name="../java-12-oracle!/java.security.jgss"/>
+      <include name="../java-12-oracle!/java.security.sasl"/>
+      <include name="../java-12-oracle!/java.smartcardio"/>
+      <include name="../java-12-oracle!/java.sql"/>
+      <include name="../java-12-oracle!/java.sql.rowset"/>
+      <include name="../java-12-oracle!/java.transaction.xa"/>
+      <include name="../java-12-oracle!/java.xml"/>
+      <include name="../java-12-oracle!/java.xml.crypto"/>
+      <include name="../java-12-oracle!/jdk.accessibility"/>
+      <include name="../java-12-oracle!/jdk.aot"/>
+      <include name="../java-12-oracle!/jdk.attach"/>
+      <include name="../java-12-oracle!/jdk.charsets"/>
+      <include name="../java-12-oracle!/jdk.compiler"/>
+      <include name="../java-12-oracle!/jdk.crypto.cryptoki"/>
+      <include name="../java-12-oracle!/jdk.crypto.ec"/>
+      <include name="../java-12-oracle!/jdk.dynalink"/>
+      <include name="../java-12-oracle!/jdk.editpad"/>
+      <include name="../java-12-oracle!/jdk.hotspot.agent"/>
+      <include name="../java-12-oracle!/jdk.httpserver"/>
+      <include name="../java-12-oracle!/jdk.internal.ed"/>
+      <include name="../java-12-oracle!/jdk.internal.jvmstat"/>
+      <include name="../java-12-oracle!/jdk.internal.le"/>
+      <include name="../java-12-oracle!/jdk.internal.opt"/>
+      <include name="../java-12-oracle!/jdk.internal.vm.ci"/>
+      <include name="../java-12-oracle!/jdk.internal.vm.compiler"/>
+      <include name="../java-12-oracle!/jdk.internal.vm.compiler.management"/>
+      <include name="../java-12-oracle!/jdk.jartool"/>
+      <include name="../java-12-oracle!/jdk.javadoc"/>
+      <include name="../java-12-oracle!/jdk.jcmd"/>
+      <include name="../java-12-oracle!/jdk.jconsole"/>
+      <include name="../java-12-oracle!/jdk.jdeps"/>
+      <include name="../java-12-oracle!/jdk.jdi"/>
+      <include name="../java-12-oracle!/jdk.jdwp.agent"/>
+      <include name="../java-12-oracle!/jdk.jfr"/>
+      <include name="../java-12-oracle!/jdk.jlink"/>
+      <include name="../java-12-oracle!/jdk.jshell"/>
+      <include name="../java-12-oracle!/jdk.jsobject"/>
+      <include name="../java-12-oracle!/jdk.jstatd"/>
+      <include name="../java-12-oracle!/jdk.localedata"/>
+      <include name="../java-12-oracle!/jdk.management"/>
+      <include name="../java-12-oracle!/jdk.management.agent"/>
+      <include name="../java-12-oracle!/jdk.management.jfr"/>
+      <include name="../java-12-oracle!/jdk.naming.dns"/>
+      <include name="../java-12-oracle!/jdk.naming.rmi"/>
+      <include name="../java-12-oracle!/jdk.net"/>
+      <include name="../java-12-oracle!/jdk.pack"/>
+      <include name="../java-12-oracle!/jdk.rmic"/>
+      <include name="../java-12-oracle!/jdk.scripting.nashorn"/>
+      <include name="../java-12-oracle!/jdk.scripting.nashorn.shell"/>
+      <include name="../java-12-oracle!/jdk.sctp"/>
+      <include name="../java-12-oracle!/jdk.security.auth"/>
+      <include name="../java-12-oracle!/jdk.security.jgss"/>
+      <include name="../java-12-oracle!/jdk.unsupported"/>
+      <include name="../java-12-oracle!/jdk.unsupported.desktop"/>
+      <include name="../java-12-oracle!/jdk.xml.dom"/>
+      <include name="../java-12-oracle!/jdk.zipfs"/>
+    </fileset>
+  </path>
+  
+  <property name="project.jdk.home" value="${jdk.home.12}"/>
+  <property name="project.jdk.bin" value="${jdk.bin.12}"/>
+  <property name="project.jdk.classpath" value="jdk.classpath.12"/>
+  
+  
+  <!-- Project Libraries -->
+  
+  <path id="library.libs.classpath">
+    <pathelement location="${basedir}/libs/bcprov-jdk15on-155.jar"/>
+    <pathelement location="${basedir}/libs/bignat.jar"/>
+    <pathelement location="${basedir}/libs/javafx.base.jar"/>
+    <pathelement location="${basedir}/libs/jcardsim-3.0.5-SNAPSHOT.jar"/>
+    <pathelement location="${basedir}/libs/offcard.jar"/>
+    <pathelement location="${basedir}/libs/testng-6.14.3.jar"/>
+  </path>
+  
+  <!-- Modules -->
+  
+  
+  <!-- Module MPCApplet -->
+  
+  <dirname property="module.mpcapplet.basedir" file="${ant.file}"/>
+  
+  
+  <property name="module.jdk.home.mpcapplet" value="${project.jdk.home}"/>
+  <property name="module.jdk.bin.mpcapplet" value="${project.jdk.bin}"/>
+  <property name="module.jdk.classpath.mpcapplet" value="${project.jdk.classpath}"/>
+  
+  <property name="compiler.args.mpcapplet" value="-encoding UTF-8 -source 12 -target 12 ${compiler.args}"/>
+  
+  <property name="mpcapplet.output.dir" value="${module.mpcapplet.basedir}/out/production/MPCApplet"/>
+  <property name="mpcapplet.testoutput.dir" value="${module.mpcapplet.basedir}/out/test/MPCApplet"/>
+  
+  <path id="mpcapplet.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="mpcapplet.module.production.classpath">
+    <path refid="${module.jdk.classpath.mpcapplet}"/>
+    <path refid="library.libs.classpath"/>
+  </path>
+  
+  <path id="mpcapplet.runtime.production.module.classpath">
+    <pathelement location="${mpcapplet.output.dir}"/>
+    <path refid="library.libs.classpath"/>
+  </path>
+  
+  <path id="mpcapplet.module.classpath">
+    <path refid="${module.jdk.classpath.mpcapplet}"/>
+    <pathelement location="${mpcapplet.output.dir}"/>
+    <path refid="library.libs.classpath"/>
+  </path>
+  
+  <path id="mpcapplet.runtime.module.classpath">
+    <pathelement location="${mpcapplet.testoutput.dir}"/>
+    <pathelement location="${mpcapplet.output.dir}"/>
+    <path refid="library.libs.classpath"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.mpcapplet">
+    <patternset refid="ignored.files"/>
+  </patternset>
+  
+  <patternset id="excluded.from.compilation.mpcapplet">
+    <patternset refid="excluded.from.module.mpcapplet"/>
+  </patternset>
+  
+  <path id="mpcapplet.module.sourcepath">
+    <dirset dir="${module.mpcapplet.basedir}/../MPCApplet">
+      <include name="src"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.mpcapplet" depends="compile.module.mpcapplet.production,compile.module.mpcapplet.tests" description="Compile module MPCApplet"/>
+  
+  <target name="compile.module.mpcapplet.production" description="Compile module MPCApplet; production classes">
+    <mkdir dir="${mpcapplet.output.dir}"/>
+    <javac destdir="${mpcapplet.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.mpcapplet}/javac">
+      <compilerarg line="${compiler.args.mpcapplet}"/>
+      <bootclasspath refid="mpcapplet.module.bootclasspath"/>
+      <classpath refid="mpcapplet.module.production.classpath"/>
+      <src refid="mpcapplet.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.mpcapplet"/>
+    </javac>
+    
+    <copy todir="${mpcapplet.output.dir}">
+      <fileset dir="${module.mpcapplet.basedir}/../MPCApplet/src">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="compile.module.mpcapplet.tests" depends="compile.module.mpcapplet.production" description="compile module MPCApplet; test classes" unless="skip.tests"/>
+  
+  <target name="clean.module.mpcapplet" description="cleanup module">
+    <delete dir="${mpcapplet.output.dir}"/>
+    <delete dir="${mpcapplet.testoutput.dir}"/>
+  </target>
+  
+  
+  <!-- Module MPCTestClient -->
+  
+  <dirname property="module.mpctestclient.basedir" file="${ant.file}"/>
+  
+  
+  <property name="module.jdk.home.mpctestclient" value="${project.jdk.home}"/>
+  <property name="module.jdk.bin.mpctestclient" value="${project.jdk.bin}"/>
+  <property name="module.jdk.classpath.mpctestclient" value="${project.jdk.classpath}"/>
+  
+  <property name="compiler.args.mpctestclient" value="-encoding UTF-8 -source 12 -target 12 ${compiler.args}"/>
+  
+  <property name="mpctestclient.output.dir" value="${module.mpctestclient.basedir}/out/production/MPCTestClient"/>
+  <property name="mpctestclient.testoutput.dir" value="${module.mpctestclient.basedir}/out/test/MPCTestClient"/>
+  
+  <path id="mpctestclient.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="mpctestclient.module.production.classpath">
+    <path refid="${module.jdk.classpath.mpctestclient}"/>
+    <path refid="library.libs.classpath"/>
+    <pathelement location="${mpcapplet.output.dir}"/>
+  </path>
+  
+  <path id="mpctestclient.runtime.production.module.classpath">
+    <pathelement location="${mpctestclient.output.dir}"/>
+    <path refid="library.libs.classpath"/>
+    <path refid="mpcapplet.runtime.production.module.classpath"/>
+  </path>
+  
+  <path id="mpctestclient.module.classpath">
+    <path refid="${module.jdk.classpath.mpctestclient}"/>
+    <pathelement location="${mpctestclient.output.dir}"/>
+    <path refid="library.libs.classpath"/>
+    <pathelement location="${mpcapplet.testoutput.dir}"/>
+    <pathelement location="${mpcapplet.output.dir}"/>
+  </path>
+  
+  <path id="mpctestclient.runtime.module.classpath">
+    <pathelement location="${mpctestclient.testoutput.dir}"/>
+    <pathelement location="${mpctestclient.output.dir}"/>
+    <path refid="library.libs.classpath"/>
+    <path refid="mpcapplet.runtime.module.classpath"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.mpctestclient">
+    <patternset refid="ignored.files"/>
+  </patternset>
+  
+  <patternset id="excluded.from.compilation.mpctestclient">
+    <patternset refid="excluded.from.module.mpctestclient"/>
+  </patternset>
+  
+  <path id="mpctestclient.module.sourcepath">
+    <dirset dir="${module.mpctestclient.basedir}">
+      <include name="src"/>
+    </dirset>
+  </path>
+  
+  <path id="mpctestclient.module.test.sourcepath">
+    <dirset dir="${module.mpctestclient.basedir}">
+      <include name="test"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.mpctestclient" depends="compile.module.mpctestclient.production,compile.module.mpctestclient.tests" description="Compile module MPCTestClient"/>
+  
+  <target name="compile.module.mpctestclient.production" depends="compile.module.mpcapplet" description="Compile module MPCTestClient; production classes">
+    <mkdir dir="${mpctestclient.output.dir}"/>
+    <javac destdir="${mpctestclient.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.mpctestclient}/javac">
+      <compilerarg line="${compiler.args.mpctestclient}"/>
+      <bootclasspath refid="mpctestclient.module.bootclasspath"/>
+      <classpath refid="mpctestclient.module.production.classpath"/>
+      <src refid="mpctestclient.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.mpctestclient"/>
+    </javac>
+    
+    <copy todir="${mpctestclient.output.dir}">
+      <fileset dir="${module.mpctestclient.basedir}/src">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="compile.module.mpctestclient.tests" depends="compile.module.mpctestclient.production" description="compile module MPCTestClient; test classes" unless="skip.tests">
+    <mkdir dir="${mpctestclient.testoutput.dir}"/>
+    <javac destdir="${mpctestclient.testoutput.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.mpctestclient}/javac">
+      <compilerarg line="${compiler.args.mpctestclient}"/>
+      <bootclasspath refid="mpctestclient.module.bootclasspath"/>
+      <classpath refid="mpctestclient.module.classpath"/>
+      <src refid="mpctestclient.module.test.sourcepath"/>
+      <patternset refid="excluded.from.compilation.mpctestclient"/>
+    </javac>
+    
+    <copy todir="${mpctestclient.testoutput.dir}">
+      <fileset dir="${module.mpctestclient.basedir}/test">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="clean.module.mpctestclient" description="cleanup module">
+    <delete dir="${mpctestclient.output.dir}"/>
+    <delete dir="${mpctestclient.testoutput.dir}"/>
+  </target>
+  
+  <target name="init" description="Build initialization">
+    <!-- Perform any build initialization in this target -->
+  </target>
+  
+  <target name="clean" depends="clean.module.mpcapplet, clean.module.mpctestclient" description="cleanup all"/>
+  
+  <target name="build.modules" depends="init, clean, compile.module.mpcapplet, compile.module.mpctestclient" description="build all modules"/>
+  
+  <target name="init.artifacts">
+    <property name="artifacts.temp.dir" value="${basedir}/__artifacts_temp"/>
+    <property name="artifact.output.mpctestclient:jar" value="${basedir}/out/artifacts/MPCTestClient_jar"/>
+    <mkdir dir="${artifacts.temp.dir}"/>
+    <property name="temp.jar.path.MPCTestClient.jar" value="${artifacts.temp.dir}/MPCTestClient.jar"/>
+  </target>
+  
+  <target name="artifact.mpctestclient:jar" depends="init.artifacts, compile.module.mpctestclient, compile.module.mpcapplet" description="Build &#39;MPCTestClient:jar&#39; artifact">
+    <property name="artifact.temp.output.mpctestclient:jar" value="${artifacts.temp.dir}/MPCTestClient_jar"/>
+    <mkdir dir="${artifact.temp.output.mpctestclient:jar}"/>
+    <jar destfile="${temp.jar.path.MPCTestClient.jar}" duplicate="preserve" filesetmanifest="mergewithoutmain">
+      <zipfileset dir="${mpctestclient.output.dir}"/>
+      <zipfileset dir="${mpcapplet.output.dir}"/>
+      <zipfileset src="${basedir}/libs/offcard.jar"/>
+      <zipfileset src="${basedir}/libs/javafx.base.jar"/>
+      <zipfileset src="${basedir}/libs/jcardsim-3.0.5-SNAPSHOT.jar"/>
+      <zipfileset src="${basedir}/libs/bcprov-jdk15on-155.jar"/>
+      <zipfileset src="${basedir}/libs/bignat.jar"/>
+      <zipfileset src="${basedir}/libs/testng-6.14.3.jar"/>
+    </jar>
+    <copy file="${temp.jar.path.MPCTestClient.jar}" tofile="${artifact.temp.output.mpctestclient:jar}/MPCTestClient.jar"/>
+  </target>
+  
+  <target name="build.all.artifacts" depends="artifact.mpctestclient:jar" description="Build all artifacts">
+    <mkdir dir="${artifact.output.mpctestclient:jar}"/>
+    <copy todir="${artifact.output.mpctestclient:jar}">
+      <fileset dir="${artifact.temp.output.mpctestclient:jar}"/>
+    </copy>
+    
+    <!-- Delete temporary files -->
+    <delete dir="${artifacts.temp.dir}"/>
+  </target>
+  
+  <target name="all" depends="build.modules, build.all.artifacts" description="build all"/>
 </project>
