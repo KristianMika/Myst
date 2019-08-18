@@ -6,7 +6,7 @@ jdk:
 dist: trusty
 
 before_install:
-    - wget --no-check-certificate http://tux.rainside.sk/apache//ant/binaries/apache-ant-1.10.6-bin.ta$
+    - wget --no-check-certificate http://tux.rainside.sk/apache//ant/binaries/apache-ant-1.10.6-bin.tar.gz
     - tar -xzvf apache-ant-1.10.6-bin.tar.gz
     - export PATH=`pwd`/apache-ant-1.10.6/bin:$PATH
     - echo $(ant -version)
