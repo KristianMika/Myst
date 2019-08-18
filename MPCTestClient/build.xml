@@ -74,7 +74,7 @@
   
   
   
-  <property name="compiler.args.mpcapplet" value="-encoding UTF-8 -source 11 -target 11 ${compiler.args}"/>
+  <property name="compiler.args.mpcapplet" value="-encoding UTF-8 -source 12 -target 12 ${compiler.args}"/>
   
   <property name="mpcapplet.output.dir" value="${module.mpcapplet.basedir}/out/production/MPCApplet"/>
   <property name="mpcapplet.testoutput.dir" value="${module.mpcapplet.basedir}/out/test/MPCApplet"/>
@@ -153,7 +153,7 @@
   
   
   
-  <property name="compiler.args.mpctestclient" value="-encoding UTF-8 -source 11 -target 11 ${compiler.args}"/>
+  <property name="compiler.args.mpctestclient" value="-encoding UTF-8 -source 12 -target 12 ${compiler.args}"/>
   
   <property name="mpctestclient.output.dir" value="${module.mpctestclient.basedir}/out/production/MPCTestClient"/>
   <property name="mpctestclient.testoutput.dir" value="${module.mpctestclient.basedir}/out/test/MPCTestClient"/>
@@ -271,14 +271,17 @@
     <property name="artifact.temp.output.mpctestclient:jar" value="${artifacts.temp.dir}/MPCTestClient_jar"/>
     <mkdir dir="${artifact.temp.output.mpctestclient:jar}"/>
     <jar destfile="${temp.jar.path.MPCTestClient.jar}" duplicate="preserve" filesetmanifest="mergewithoutmain">
-      <zipfileset dir="${mpctestclient.output.dir}"/>
-      <zipfileset dir="${mpcapplet.output.dir}"/>
-      <zipfileset src="${basedir}/libs/testng-6.14.3.jar"/>
-      <zipfileset src="${basedir}/libs/offcard.jar"/>
-      <zipfileset src="${basedir}/libs/javafx.base.jar"/>
-      <zipfileset src="${basedir}/libs/jcardsim-3.0.5-SNAPSHOT.jar"/>
-      <zipfileset src="${basedir}/libs/bcprov-jdk15on-155.jar"/>
-      <zipfileset src="${basedir}/libs/bignat.jar"/>
+      <zipfileset dir="${mpctestclient.output.dir}" excludes="META-INF/*.SF"/>
+      <zipfileset dir="${mpcapplet.output.dir}" excludes="META-INF/*.SF"/>
+      <zipfileset src="${basedir}/libs/testng-6.14.3.jar" excludes="META-INF/*.SF"/>
+      <zipfileset src="${basedir}/libs/offcard.jar" excludes="META-INF/*.SF"/>
+      <zipfileset src="${basedir}/libs/javafx.base.jar" excludes="META-INF/*.SF"/>
+      <zipfileset src="${basedir}/libs/jcardsim-3.0.5-SNAPSHOT.jar" excludes="META-INF/*.SF"/>
+      <zipfileset src="${basedir}/libs/bcprov-jdk15on-155.jar" excludes="META-INF/*.SF"/>
+      <zipfileset src="${basedir}/libs/bignat.jar" excludes="META-INF/*.SF"/>
+      <manifest>
+        <attribute name="Main-Class" value="mpctestclient.MPCTestClient"/>
+      </manifest>
     </jar>
     <copy file="${temp.jar.path.MPCTestClient.jar}" tofile="${artifact.temp.output.mpctestclient:jar}/MPCTestClient.jar"/>
   </target>
