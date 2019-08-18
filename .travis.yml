@@ -5,6 +5,13 @@ jdk:
 
 dist: trusty
 
+before_install:
+    - wget --no-check-certificate http://tux.rainside.sk/apache//ant/binaries/apache-ant-1.10.6-bin.ta$
+    - tar -xzvf apache-ant-1.10.6-bin.tar.gz
+    - export PATH=`pwd`/apache-ant-1.10.6/bin:$PATH
+    - echo $(ant -version)
+
+
 install: 
     - cd MPCTestClient
     - ant -f build.xml -Dnb.internal.action.name=rebuild clean jar
