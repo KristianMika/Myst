@@ -2,7 +2,7 @@
 <project name="mpctestclient" default="all">
   
   
-  <property file="mpctestclient.properties"/>
+  <property file="build.properties"/>
   <!-- Uncomment the following property if no tests compilation is needed -->
   <!-- 
   <property name="skip.tests" value="true"/>
@@ -53,88 +53,6 @@
     <exclude name="**/?*.aj"/>
   </patternset>
   
-  <!-- JDK definitions -->
-  
-  <property name="jdk.bin.12" value="${jdk.home.12}/bin"/>
-  <path id="jdk.classpath.12">
-    <fileset dir="${jdk.home.12}">
-      <include name="../java-12-oracle!/java.base"/>
-      <include name="../java-12-oracle!/java.compiler"/>
-      <include name="../java-12-oracle!/java.datatransfer"/>
-      <include name="../java-12-oracle!/java.desktop"/>
-      <include name="../java-12-oracle!/java.instrument"/>
-      <include name="../java-12-oracle!/java.logging"/>
-      <include name="../java-12-oracle!/java.management"/>
-      <include name="../java-12-oracle!/java.management.rmi"/>
-      <include name="../java-12-oracle!/java.naming"/>
-      <include name="../java-12-oracle!/java.net.http"/>
-      <include name="../java-12-oracle!/java.prefs"/>
-      <include name="../java-12-oracle!/java.rmi"/>
-      <include name="../java-12-oracle!/java.scripting"/>
-      <include name="../java-12-oracle!/java.se"/>
-      <include name="../java-12-oracle!/java.security.jgss"/>
-      <include name="../java-12-oracle!/java.security.sasl"/>
-      <include name="../java-12-oracle!/java.smartcardio"/>
-      <include name="../java-12-oracle!/java.sql"/>
-      <include name="../java-12-oracle!/java.sql.rowset"/>
-      <include name="../java-12-oracle!/java.transaction.xa"/>
-      <include name="../java-12-oracle!/java.xml"/>
-      <include name="../java-12-oracle!/java.xml.crypto"/>
-      <include name="../java-12-oracle!/jdk.accessibility"/>
-      <include name="../java-12-oracle!/jdk.aot"/>
-      <include name="../java-12-oracle!/jdk.attach"/>
-      <include name="../java-12-oracle!/jdk.charsets"/>
-      <include name="../java-12-oracle!/jdk.compiler"/>
-      <include name="../java-12-oracle!/jdk.crypto.cryptoki"/>
-      <include name="../java-12-oracle!/jdk.crypto.ec"/>
-      <include name="../java-12-oracle!/jdk.dynalink"/>
-      <include name="../java-12-oracle!/jdk.editpad"/>
-      <include name="../java-12-oracle!/jdk.hotspot.agent"/>
-      <include name="../java-12-oracle!/jdk.httpserver"/>
-      <include name="../java-12-oracle!/jdk.internal.ed"/>
-      <include name="../java-12-oracle!/jdk.internal.jvmstat"/>
-      <include name="../java-12-oracle!/jdk.internal.le"/>
-      <include name="../java-12-oracle!/jdk.internal.opt"/>
-      <include name="../java-12-oracle!/jdk.internal.vm.ci"/>
-      <include name="../java-12-oracle!/jdk.internal.vm.compiler"/>
-      <include name="../java-12-oracle!/jdk.internal.vm.compiler.management"/>
-      <include name="../java-12-oracle!/jdk.jartool"/>
-      <include name="../java-12-oracle!/jdk.javadoc"/>
-      <include name="../java-12-oracle!/jdk.jcmd"/>
-      <include name="../java-12-oracle!/jdk.jconsole"/>
-      <include name="../java-12-oracle!/jdk.jdeps"/>
-      <include name="../java-12-oracle!/jdk.jdi"/>
-      <include name="../java-12-oracle!/jdk.jdwp.agent"/>
-      <include name="../java-12-oracle!/jdk.jfr"/>
-      <include name="../java-12-oracle!/jdk.jlink"/>
-      <include name="../java-12-oracle!/jdk.jshell"/>
-      <include name="../java-12-oracle!/jdk.jsobject"/>
-      <include name="../java-12-oracle!/jdk.jstatd"/>
-      <include name="../java-12-oracle!/jdk.localedata"/>
-      <include name="../java-12-oracle!/jdk.management"/>
-      <include name="../java-12-oracle!/jdk.management.agent"/>
-      <include name="../java-12-oracle!/jdk.management.jfr"/>
-      <include name="../java-12-oracle!/jdk.naming.dns"/>
-      <include name="../java-12-oracle!/jdk.naming.rmi"/>
-      <include name="../java-12-oracle!/jdk.net"/>
-      <include name="../java-12-oracle!/jdk.pack"/>
-      <include name="../java-12-oracle!/jdk.rmic"/>
-      <include name="../java-12-oracle!/jdk.scripting.nashorn"/>
-      <include name="../java-12-oracle!/jdk.scripting.nashorn.shell"/>
-      <include name="../java-12-oracle!/jdk.sctp"/>
-      <include name="../java-12-oracle!/jdk.security.auth"/>
-      <include name="../java-12-oracle!/jdk.security.jgss"/>
-      <include name="../java-12-oracle!/jdk.unsupported"/>
-      <include name="../java-12-oracle!/jdk.unsupported.desktop"/>
-      <include name="../java-12-oracle!/jdk.xml.dom"/>
-      <include name="../java-12-oracle!/jdk.zipfs"/>
-    </fileset>
-  </path>
-  
-  <property name="project.jdk.home" value="${jdk.home.12}"/>
-  <property name="project.jdk.bin" value="${jdk.bin.12}"/>
-  <property name="project.jdk.classpath" value="jdk.classpath.12"/>
-  
   
   <!-- Project Libraries -->
   
@@ -155,9 +73,6 @@
   <dirname property="module.mpcapplet.basedir" file="${ant.file}"/>
   
   
-  <property name="module.jdk.home.mpcapplet" value="${project.jdk.home}"/>
-  <property name="module.jdk.bin.mpcapplet" value="${project.jdk.bin}"/>
-  <property name="module.jdk.classpath.mpcapplet" value="${project.jdk.classpath}"/>
   
   <property name="compiler.args.mpcapplet" value="-encoding UTF-8 -source 12 -target 12 ${compiler.args}"/>
   
@@ -169,7 +84,6 @@
   </path>
   
   <path id="mpcapplet.module.production.classpath">
-    <path refid="${module.jdk.classpath.mpcapplet}"/>
     <path refid="library.libs.classpath"/>
   </path>
   
@@ -179,7 +93,6 @@
   </path>
   
   <path id="mpcapplet.module.classpath">
-    <path refid="${module.jdk.classpath.mpcapplet}"/>
     <pathelement location="${mpcapplet.output.dir}"/>
     <path refid="library.libs.classpath"/>
   </path>
@@ -210,7 +123,7 @@
   
   <target name="compile.module.mpcapplet.production" description="Compile module MPCApplet; production classes">
     <mkdir dir="${mpcapplet.output.dir}"/>
-    <javac destdir="${mpcapplet.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.mpcapplet}/javac">
+    <javac destdir="${mpcapplet.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true">
       <compilerarg line="${compiler.args.mpcapplet}"/>
       <bootclasspath refid="mpcapplet.module.bootclasspath"/>
       <classpath refid="mpcapplet.module.production.classpath"/>
@@ -239,9 +152,6 @@
   <dirname property="module.mpctestclient.basedir" file="${ant.file}"/>
   
   
-  <property name="module.jdk.home.mpctestclient" value="${project.jdk.home}"/>
-  <property name="module.jdk.bin.mpctestclient" value="${project.jdk.bin}"/>
-  <property name="module.jdk.classpath.mpctestclient" value="${project.jdk.classpath}"/>
   
   <property name="compiler.args.mpctestclient" value="-encoding UTF-8 -source 12 -target 12 ${compiler.args}"/>
   
@@ -253,7 +163,6 @@
   </path>
   
   <path id="mpctestclient.module.production.classpath">
-    <path refid="${module.jdk.classpath.mpctestclient}"/>
     <path refid="library.libs.classpath"/>
     <pathelement location="${mpcapplet.output.dir}"/>
   </path>
@@ -265,7 +174,6 @@
   </path>
   
   <path id="mpctestclient.module.classpath">
-    <path refid="${module.jdk.classpath.mpctestclient}"/>
     <pathelement location="${mpctestclient.output.dir}"/>
     <path refid="library.libs.classpath"/>
     <pathelement location="${mpcapplet.testoutput.dir}"/>
@@ -305,7 +213,7 @@
   
   <target name="compile.module.mpctestclient.production" depends="compile.module.mpcapplet" description="Compile module MPCTestClient; production classes">
     <mkdir dir="${mpctestclient.output.dir}"/>
-    <javac destdir="${mpctestclient.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.mpctestclient}/javac">
+    <javac destdir="${mpctestclient.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true">
       <compilerarg line="${compiler.args.mpctestclient}"/>
       <bootclasspath refid="mpctestclient.module.bootclasspath"/>
       <classpath refid="mpctestclient.module.production.classpath"/>
@@ -323,7 +231,7 @@
   
   <target name="compile.module.mpctestclient.tests" depends="compile.module.mpctestclient.production" description="compile module MPCTestClient; test classes" unless="skip.tests">
     <mkdir dir="${mpctestclient.testoutput.dir}"/>
-    <javac destdir="${mpctestclient.testoutput.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.mpctestclient}/javac">
+    <javac destdir="${mpctestclient.testoutput.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true">
       <compilerarg line="${compiler.args.mpctestclient}"/>
       <bootclasspath refid="mpctestclient.module.bootclasspath"/>
       <classpath refid="mpctestclient.module.classpath"/>
@@ -365,12 +273,12 @@
     <jar destfile="${temp.jar.path.MPCTestClient.jar}" duplicate="preserve" filesetmanifest="mergewithoutmain">
       <zipfileset dir="${mpctestclient.output.dir}"/>
       <zipfileset dir="${mpcapplet.output.dir}"/>
+      <zipfileset src="${basedir}/libs/testng-6.14.3.jar"/>
       <zipfileset src="${basedir}/libs/offcard.jar"/>
       <zipfileset src="${basedir}/libs/javafx.base.jar"/>
       <zipfileset src="${basedir}/libs/jcardsim-3.0.5-SNAPSHOT.jar"/>
       <zipfileset src="${basedir}/libs/bcprov-jdk15on-155.jar"/>
       <zipfileset src="${basedir}/libs/bignat.jar"/>
-      <zipfileset src="${basedir}/libs/testng-6.14.3.jar"/>
     </jar>
     <copy file="${temp.jar.path.MPCTestClient.jar}" tofile="${artifact.temp.output.mpctestclient:jar}/MPCTestClient.jar"/>
   </target>
