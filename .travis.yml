@@ -21,4 +21,6 @@ install:
 
 script:
     - cd ../MPCTestClient
-    - java -jar out/artifacts/MPCTestClient_jar/MPCTestClient.jar
+    - ClassPath="out/test/MPCTestClient:out/production/MPCTestClient:libs/*:out/production/MPCApplet"
+    - java -cp $ClassPath org.testng.TestNG testng.xml 
+   

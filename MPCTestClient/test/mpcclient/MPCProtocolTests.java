@@ -61,13 +61,37 @@ public class MPCProtocolTests {
     }
 
     @Test
+    void runMPCProtocol_3playersOnly_realCard() throws Exception {
+        MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
+        runCfg.numPlayers = 2;
+        runCfg.numSingleOpRepeats = 1;
+        // Execute once
+        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+    }
+
+    @Test
+    void runMPCProtocol_5playersOnly_realCard() throws Exception {
+        MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
+        runCfg.numPlayers = 2;
+        runCfg.numSingleOpRepeats = 1;
+        // Execute once
+        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+    }
+
+    @Test
+    void runMPCProtocol_10playersOnly_realCard() throws Exception {
+        MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
+        runCfg.numPlayers = 2;
+        runCfg.numSingleOpRepeats = 1;
+        // Execute once
+        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+    }
+    
+    @Test
     void runMPCProtocol_maxNumPlayers_realCard() throws Exception {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = Consts.MAX_NUM_PLAYERS;
         // Execute once
         mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg);
     }
-    
-    
-    
 }

@@ -83,12 +83,14 @@ public class MPCTestClient {
             runCfg.numPlayers = 4;
             runCfg.cardName = "gd60";
 
+            
             MPCProtocol_demo(runCfg);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
+     
     static void writePerfLog(String operationName, Long time, ArrayList<Pair<String, Long>> perfResults, FileOutputStream perfFile) throws IOException {
         perfResults.add(new Pair(operationName, time));
         perfFile.write(String.format("%s,%d\n", operationName, time).getBytes());
@@ -396,19 +398,16 @@ public class MPCTestClient {
         }
 
         // Retrieve Aggregated Y
+        boolean bFirstPlayer = true;
         for (MPCPlayer player : mpcGlobals.players) {
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
             System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX));
-            if (player instanceof CardMPCPlayer) {
+            if (bFirstPlayer) {
                 mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX);
+                bFirstPlayer = false;
             }
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
-        }
-        
-        //When running a simulator without a single physical card, Yagg has to be set by one of the simulated players
-        if (mpcGlobals.AggPubKey == null){
-            mpcGlobals.AggPubKey = mpcGlobals.players.get(0).GetAggregatedPubKey(QUORUM_INDEX);
         }
     }
 
