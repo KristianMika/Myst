@@ -1,5 +1,6 @@
 # Myst
 ## Secure Multiparty Key Generation, Signature and Decryption JavaCard applet and host application
+[![Build Status](https://travis-ci.org/KristianMika/Myst.svg?branch=master)](https://travis-ci.org/KristianMika/Myst)
 Cryptographic Hardware from Untrusted Components
 
 This project implements novel distributed key generation, signature, and decryption with private key distributed among multiple separate entities. 
