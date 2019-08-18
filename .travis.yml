@@ -23,4 +23,5 @@ install:
 
 script:
     - export JAVA_HOME=$HOME/openjdk11
+    - cd ../MPCTestClient
     - java -jar out/artifacts/MPCTestClient_jar/MPCTestClient.jar
