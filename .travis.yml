@@ -2,7 +2,7 @@ language: java
 
 jdk:
     - oraclejdk8
-    - openjdk11
+
 
 dist: trusty
 
@@ -14,14 +14,11 @@ before_install:
 
 
 install:
-    - export JAVA_HOME=$HOME/openjdk11 
     - cd MPCTestClient
     - ant
     - cd ../MPCApplet/
-    - jdk_switcher use oraclejdk8 
     - ant -f jcbuild.xml build
 
 script:
-    - export JAVA_HOME=$HOME/openjdk11
     - cd ../MPCTestClient
     - java -jar out/artifacts/MPCTestClient_jar/MPCTestClient.jar

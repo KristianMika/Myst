@@ -74,7 +74,7 @@
   
   
   
-  <property name="compiler.args.mpcapplet" value="-encoding UTF-8 -source 11 -target 11 ${compiler.args}"/>
+  <property name="compiler.args.mpcapplet" value="-encoding UTF-8 -source 8 -target 8 ${compiler.args}"/>
   
   <property name="mpcapplet.output.dir" value="${module.mpcapplet.basedir}/out/production/MPCApplet"/>
   <property name="mpcapplet.testoutput.dir" value="${module.mpcapplet.basedir}/out/test/MPCApplet"/>
@@ -153,7 +153,7 @@
   
   
   
-  <property name="compiler.args.mpctestclient" value="-encoding UTF-8 -source 11 -target 11 ${compiler.args}"/>
+  <property name="compiler.args.mpctestclient" value="-encoding UTF-8 -source 8 -target 8 ${compiler.args}"/>
   
   <property name="mpctestclient.output.dir" value="${module.mpctestclient.basedir}/out/production/MPCTestClient"/>
   <property name="mpctestclient.testoutput.dir" value="${module.mpctestclient.basedir}/out/test/MPCTestClient"/>
