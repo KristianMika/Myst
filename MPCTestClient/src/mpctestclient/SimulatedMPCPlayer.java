@@ -206,8 +206,8 @@ class SimulatedMPCPlayer implements MPCPlayer {
         //Gen e (e will be the same in all signature shares)
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         
-        //System.out.println("Simulated: Plaintext:" + client.bytesToHex(plaintext));
-        //System.out.println("Simulated: Ri,n:     " + client.bytesToHex(R_EC.getEncoded(false)));
+        //System.out.println("Simulated: Plaintext:" + Util.bytesToHex(plaintext));
+        //System.out.println("Simulated: Ri,n:     " + Util.bytesToHex(R_EC.getEncoded(false)));
         md.update(plaintext);
         md.update(R_EC.getEncoded(false)); // R_EC is the sum of the r_i's
         byte[] e = md.digest();
@@ -222,8 +222,8 @@ class SimulatedMPCPlayer implements MPCPlayer {
         /* BUGBUG: I'm cheating a bit here, and use the e returned by the JC.
          Btw e is always the same, so it can actually be computed 
          on the host if this helps with optimizing the applet */
-        //System.out.println("Simulated: s:        " + client.bytesToHex(s_i_BI.toByteArray()));
-        //System.out.println("Simulated: e:        " + client.bytesToHex(e) + "\n");
+        //System.out.println("Simulated: s:        " + Util.bytesToHex(s_i_BI.toByteArray()));
+        //System.out.println("Simulated: e:        " + Util.bytesToHex(e) + "\n");
         return s_i_BI;
     }
 
