@@ -111,7 +111,11 @@ public class MPCTestClient {
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
         ArrayList<CardChannel> cardsList = new ArrayList<>();
-        CardManagement.ConnectAllPhysicalCards(runCfg.appletAID, cardsList);
+        CardChannel connChannel = CardManagement.Connect(runCfg);
+        
+        if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL){
+             cardsList.add(connChannel);
+        }
         // Create card contexts, fill cards IDs
         short cardID = runCfg.thisCardID;
         for (CardChannel channel : cardsList) {
@@ -226,10 +230,11 @@ public class MPCTestClient {
         }
     }
     
-    public static void TestMPCProtocol_v20170920(MPCRunConfig runCfg) throws FileNotFoundException, Exception {
+    public static void TestMPCProtocol_v20170920(MPCRunConfig runCfg, MPCRunConfig.CARD_TYPE cardType) throws FileNotFoundException, Exception {
         String experimentID = String.format("%d", System.currentTimeMillis());
         runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
 
+        runCfg.testCardType = cardType;
         // Prepare globals
         mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
         mpcGlobals.players.clear();
@@ -240,7 +245,11 @@ public class MPCTestClient {
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
         ArrayList<CardChannel> cardsList = new ArrayList<>();
-        CardManagement.ConnectAllPhysicalCards(runCfg.appletAID, cardsList);
+        CardChannel connChannel = CardManagement.Connect(runCfg);
+        
+        if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL){
+             cardsList.add(connChannel);
+        }
         // Create card contexts, fill cards IDs
         short cardID = runCfg.thisCardID;
         for (CardChannel channel : cardsList) {

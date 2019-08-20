@@ -40,15 +40,15 @@ public class MPCProtocolTests {
         runCfg.numSingleOpRepeats = 3;
         
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
         
         // Execute 2x
         runCfg.numWholeTestRepeats = 2;
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
 
         // Execute 10x
         runCfg.numWholeTestRepeats = 10;
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
     }
 
     @Test
@@ -57,7 +57,7 @@ public class MPCProtocolTests {
         runCfg.numPlayers = 1;
         runCfg.numSingleOpRepeats = 1;
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
     }
 
     @Test
@@ -66,7 +66,7 @@ public class MPCProtocolTests {
         runCfg.numPlayers = 2;
         runCfg.numSingleOpRepeats = 1;
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
     }
 
     @Test
@@ -75,7 +75,7 @@ public class MPCProtocolTests {
         runCfg.numPlayers = 3;
         runCfg.numSingleOpRepeats = 1;
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
     }
 
     @Test
@@ -84,7 +84,7 @@ public class MPCProtocolTests {
         runCfg.numPlayers = 5;
         runCfg.numSingleOpRepeats = 1;
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
     }
 
     @Test
@@ -93,14 +93,6 @@ public class MPCProtocolTests {
         runCfg.numPlayers = 10;
         runCfg.numSingleOpRepeats = 1;
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
-    }
-
-    @Test
-    void runMPCProtocol_maxNumPlayers_realCard() throws Exception {
-        MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
-        runCfg.numPlayers = Consts.MAX_NUM_PLAYERS;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
     }
 }

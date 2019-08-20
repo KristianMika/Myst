@@ -379,7 +379,7 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public BigInteger Sign(short quorumIndex, int round, byte[] plaintext, byte[] Rn) throws Exception {
+    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext) throws Exception {
 
         //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
         byte[] signature = Sign_plain(quorumIndex, round, plaintext, Rn);
