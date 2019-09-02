@@ -18,7 +18,7 @@ public class CardManagement {
     static Long m_lastTransmitTime = new Long(0);
 
     // Card Logistics
-    public static CardChannel Connect(MPCRunConfig runCfg) throws Exception {
+    private static CardChannel Connect(MPCRunConfig runCfg) throws Exception {
         switch (runCfg.testCardType) {
             case PHYSICAL: {
                 return ConnectPhysicalCard(runCfg.targetReaderIndex, runCfg.appletAID);

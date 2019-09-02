@@ -111,7 +111,7 @@ public class MPCTestClient {
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
         ArrayList<CardChannel> cardsList = new ArrayList<>();
-        CardChannel connChannel = CardManagement.Connect(runCfg);
+        CardChannel connChannel = Connect(runCfg);
         
         if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL){
              cardsList.add(connChannel);
@@ -245,7 +245,7 @@ public class MPCTestClient {
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
         ArrayList<CardChannel> cardsList = new ArrayList<>();
-        CardChannel connChannel = CardManagement.Connect(runCfg);
+        CardChannel connChannel = Connect(runCfg);
         
         if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL){
              cardsList.add(connChannel);

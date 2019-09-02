@@ -140,12 +140,18 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
-        if (playerIndex > this.GetPlayerIndex(quorumIndex)){
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(pub_arr);
+        byte[] hash_comp = md.digest();
+        boolean is_valid;
+        if (playerIndex > this.GetPlayerIndex(quorumIndex)) {
+            is_valid = Arrays.equals(hash_comp, pub_keys_hashes[playerIndex - 1]);
             pub_keys[playerIndex - 1] = pub_arr;
         } else {
+            is_valid = Arrays.equals(hash_comp, pub_keys_hashes[playerIndex]);
             pub_keys[playerIndex] = pub_arr;
         }
-        return true;
+        return is_valid;
     }
 
     @Override
