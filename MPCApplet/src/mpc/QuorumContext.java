@@ -157,11 +157,6 @@ public class QuorumContext {
             }
         }
         state.MakeStateTransition(StateModel.STATE_KEYGEN_PRIVATEGENERATED);
-        
-        // In extreme case, quorum is of size 1 and final key is generated
-        if (Y_EC_onTheFly_shares_count == NUM_PLAYERS) {
-            state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
-        }
     }
     
     public final byte[] privbytes_backdoored = {(byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55};
@@ -187,6 +182,11 @@ public class QuorumContext {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_RetrieveCommitment);
         if (players[CARD_INDEX_THIS].bYsCommitmentValid) {
             Util.arrayCopyNonAtomic(players[CARD_INDEX_THIS].YsCommitment, (short) 0, array, offset, (short) players[CARD_INDEX_THIS].YsCommitment.length);
+            
+            // In extreme case, when quorum is of size 1 and StoreCommitment() is skipped, the state transition has to happen here
+            if (Y_EC_onTheFly_shares_count == NUM_PLAYERS) {
+                state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);
+            }
             return (short) players[CARD_INDEX_THIS].YsCommitment.length;
         } else {
             ISOException.throwIt(Consts.SW_INVALIDCOMMITMENT);
@@ -281,6 +281,12 @@ public class QuorumContext {
         if (state.GetState() == StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED) {
             if (players[CARD_INDEX_THIS].bYsValid) {
                 Util.arrayCopyNonAtomic(this_card_Ys, (short) 0, commitmentBuffer, commitmentOffset, (short) this_card_Ys.length);
+
+                // In extreme case, when quorum is of size 1 and SetYs() is skipped, the state transition has to happen here
+                if (Y_EC_onTheFly_shares_count == NUM_PLAYERS) {
+                    state.MakeStateTransition(StateModel.STATE_KEYGEN_SHARESCOLLECTED);
+                    state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
+                }
                 return (short) this_card_Ys.length;
             } else {
                 ISOException.throwIt(Consts.SW_INVALIDYSHARE);

@@ -24,6 +24,7 @@ script:
     - ClassPath="out/test/MPCTestClient:out/production/MPCTestClient:libs/*:out/production/MPCApplet"
     - java -ea -cp $ClassPath org.testng.TestNG test/testNGxmls/testng.xml
     # various tests using jcardsim have to be run sequentially
+    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard1player.xml
     - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard2players.xml
     - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard3players.xml
     - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard5players.xml
