@@ -144,22 +144,29 @@ public class MPCTestClient {
             //
             // Setup card(s)
             //
+            boolean operationResult;
             short playerIndex = 0;
             for (MPCPlayer player : mpcGlobals.players) {
                 // Setup
                 String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
+                System.out.format(format, operationName, operationResult);
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                assertIfSelected(operationResult);
                 
                 // Reset
                 operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
+                operationResult = player.Reset(QUORUM_INDEX);
+                System.out.format(format, operationName, operationResult);
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                assertIfSelected(operationResult);
 
                 // Setup again
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
+                System.out.format(format, operationName, operationResult);
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                assertIfSelected(operationResult);
 
                 playerIndex++;
             }
@@ -278,22 +285,29 @@ public class MPCTestClient {
             //
             // Setup card(s)
             //
+            boolean operationResult;
             short playerIndex = 0;
             for (MPCPlayer player : mpcGlobals.players) {
                 // Setup
                 String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
+                System.out.format(format, operationName, operationResult);
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                assertIfSelected(operationResult);
 
                 // Reset
                 operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
+                operationResult = player.Reset(QUORUM_INDEX);
+                System.out.format(format, operationName, operationResult);
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                assertIfSelected(operationResult);
 
                 // Setup again
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
+                System.out.format(format, operationName, operationResult);
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                assertIfSelected(operationResult);
 
                 playerIndex++;
             }
@@ -359,19 +373,23 @@ public class MPCTestClient {
 
     static void PerformKeyGen(ArrayList<MPCPlayer> playersList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
         Long combinedTime = (long) 0;
-
+        boolean operationResult;
         for (MPCPlayer player : mpcGlobals.players) {
             // Generate KeyPair in card
             String operationName = "Generate KeyPair (INS_KEYGEN_INIT)";
-            System.out.format(format, operationName, player.GenKeyPair(QUORUM_INDEX));
+            operationResult = player.GenKeyPair(QUORUM_INDEX);
+            System.out.format(format, operationName, operationResult);
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
+            assertIfSelected(operationResult);
 
             // Retrieve Hash from card
             operationName = "Retrieve Hash of pub key (INS_KEYGEN_RETRIEVE_HASH)";
-            System.out.format(format, operationName, player.RetrievePubKeyHash(QUORUM_INDEX));
+            operationResult = player.RetrievePubKeyHash(QUORUM_INDEX);
+            System.out.format(format, operationName, operationResult);
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
+            assertIfSelected(operationResult);
         }
 
         // Push hash for all our pub keys
@@ -379,9 +397,11 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : mpcGlobals.players) {
             for (MPCPlayer playerSource : mpcGlobals.players) {
                 if (playerTarget != playerSource) {
-                    System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX)));
+                    operationResult = playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX));
+                    System.out.format(format, operationName, operationResult);
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
+                    assertIfSelected(operationResult);
                 }
             }
         }
@@ -399,9 +419,11 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : mpcGlobals.players) {
             for (MPCPlayer playerSource : mpcGlobals.players) {
                 if (playerTarget != playerSource) {
-                    System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false)));
+                    operationResult = playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false));
+                    System.out.format(format, operationName, operationResult);
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
+                    assertIfSelected(operationResult);
                 }
             }
         }
@@ -410,13 +432,15 @@ public class MPCTestClient {
         boolean bFirstPlayer = true;
         for (MPCPlayer player : mpcGlobals.players) {
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
-            System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX));
+            operationResult = player.RetrieveAggPubKey(QUORUM_INDEX);
+            System.out.format(format, operationName, operationResult);
             if (bFirstPlayer) {
                 mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX);
                 bFirstPlayer = false;
             }
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
+            assertIfSelected(operationResult);
         }
     }
 
@@ -724,6 +748,14 @@ public class MPCTestClient {
         }
         assert (false);
         return PM.TRAP_UNDEFINED;
+    }
+    
+    public static void assertIfSelected(boolean operationResult)
+    {
+        if (_FAIL_ON_ASSERT)
+        {
+            assert (operationResult);
+        }
     }
 
     /* TODO: move to card where channel is known   

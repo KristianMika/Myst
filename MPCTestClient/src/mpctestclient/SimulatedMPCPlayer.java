@@ -146,10 +146,10 @@ class SimulatedMPCPlayer implements MPCPlayer {
         byte[] hash_comp = md.digest();
         boolean is_valid;
         if (playerIndex > this.GetPlayerIndex(quorumIndex)) {
-            is_valid = Arrays.equals(hash_comp, pub_keys_hashes[playerIndex - 1]);
+            is_valid = Arrays.equals(hash_comp, pub_key_hashes[playerIndex - 1]);
             pub_keys[playerIndex - 1] = pub_arr;
         } else {
-            is_valid = Arrays.equals(hash_comp, pub_keys_hashes[playerIndex]);
+            is_valid = Arrays.equals(hash_comp, pub_key_hashes[playerIndex]);
             pub_keys[playerIndex] = pub_arr;
         }
         return is_valid;
