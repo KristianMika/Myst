@@ -144,29 +144,22 @@ public class MPCTestClient {
             //
             // Setup card(s)
             //
-            boolean operationResult;
             short playerIndex = 0;
             for (MPCPlayer player : mpcGlobals.players) {
                 // Setup
                 String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
-                System.out.format(format, operationName, operationResult);
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-                assertIfSelected(operationResult);
                 
                 // Reset
                 operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                operationResult = player.Reset(QUORUM_INDEX);
-                System.out.format(format, operationName, operationResult);
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-                assertIfSelected(operationResult);
 
                 // Setup again
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
-                System.out.format(format, operationName, operationResult);
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-                assertIfSelected(operationResult);
 
                 playerIndex++;
             }
@@ -285,29 +278,22 @@ public class MPCTestClient {
             //
             // Setup card(s)
             //
-            boolean operationResult;
             short playerIndex = 0;
             for (MPCPlayer player : mpcGlobals.players) {
                 // Setup
                 String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
-                System.out.format(format, operationName, operationResult);
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-                assertIfSelected(operationResult);
 
                 // Reset
                 operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                operationResult = player.Reset(QUORUM_INDEX);
-                System.out.format(format, operationName, operationResult);
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-                assertIfSelected(operationResult);
 
                 // Setup again
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                operationResult = player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex);
-                System.out.format(format, operationName, operationResult);
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-                assertIfSelected(operationResult);
 
                 playerIndex++;
             }
@@ -373,23 +359,18 @@ public class MPCTestClient {
 
     static void PerformKeyGen(ArrayList<MPCPlayer> playersList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
         Long combinedTime = (long) 0;
-        boolean operationResult;
         for (MPCPlayer player : mpcGlobals.players) {
             // Generate KeyPair in card
             String operationName = "Generate KeyPair (INS_KEYGEN_INIT)";
-            operationResult = player.GenKeyPair(QUORUM_INDEX);
-            System.out.format(format, operationName, operationResult);
+            System.out.format(format, operationName, player.GenKeyPair(QUORUM_INDEX));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
-            assertIfSelected(operationResult);
 
             // Retrieve Hash from card
             operationName = "Retrieve Hash of pub key (INS_KEYGEN_RETRIEVE_HASH)";
-            operationResult = player.RetrievePubKeyHash(QUORUM_INDEX);
-            System.out.format(format, operationName, operationResult);
+            System.out.format(format, operationName, player.RetrievePubKeyHash(QUORUM_INDEX));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
-            assertIfSelected(operationResult);
         }
 
         // Push hash for all our pub keys
@@ -397,11 +378,9 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : mpcGlobals.players) {
             for (MPCPlayer playerSource : mpcGlobals.players) {
                 if (playerTarget != playerSource) {
-                    operationResult = playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX));
-                    System.out.format(format, operationName, operationResult);
+                    System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX)));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
-                    assertIfSelected(operationResult);
                 }
             }
         }
@@ -414,6 +393,7 @@ public class MPCTestClient {
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
+        boolean operationResult;
         // Push all public keys
         operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
         for (MPCPlayer playerTarget : mpcGlobals.players) {
@@ -432,15 +412,13 @@ public class MPCTestClient {
         boolean bFirstPlayer = true;
         for (MPCPlayer player : mpcGlobals.players) {
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
-            operationResult = player.RetrieveAggPubKey(QUORUM_INDEX);
-            System.out.format(format, operationName, operationResult);
+            System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX));
             if (bFirstPlayer) {
                 mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX);
                 bFirstPlayer = false;
             }
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
-            assertIfSelected(operationResult);
         }
     }
 
@@ -490,14 +468,10 @@ public class MPCTestClient {
 
             System.out.format(format, "Decryption successful?:",
                     Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
-            if (_FAIL_ON_ASSERT) {
-                assert (Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
-            }
+            assertIfSelected(Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
         } else {
             System.out.println("ERROR: Failed to retrieve valid encrypted block from card");
-            if (_FAIL_ON_ASSERT) {
-                assert (false);
-            }
+            assertIfSelected(false);
         }
     }
 
@@ -591,9 +565,8 @@ public class MPCTestClient {
         ev_bi = ev_bi.mod(mpcGlobals.n);
         //System.out.println(Util.bytesToHex(e_bi.toByteArray()));		
         //System.out.println(Util.bytesToHex(ev_bi.toByteArray()));
-        if (_FAIL_ON_ASSERT) {
-            assert (e_bi.compareTo(ev_bi) == 0);
-        }
+        assertIfSelected(e_bi.compareTo(ev_bi) == 0);
+        
         // compare ev with e
         return e_bi.compareTo(ev_bi) == 0;
     }
