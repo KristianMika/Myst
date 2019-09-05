@@ -78,7 +78,7 @@ public class MPCTestClient {
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
-            runCfg.numSingleOpRepeats = 1;
+            runCfg.numSingleOpRepeats = 4;
             //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
             runCfg.numPlayers = 4;
             runCfg.cardName = "gd60";
@@ -399,11 +399,9 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : mpcGlobals.players) {
             for (MPCPlayer playerSource : mpcGlobals.players) {
                 if (playerTarget != playerSource) {
-                    operationResult = playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false));
-                    System.out.format(format, operationName, operationResult);
+                    System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false)));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
-                    assertIfSelected(operationResult);
                 }
             }
         }

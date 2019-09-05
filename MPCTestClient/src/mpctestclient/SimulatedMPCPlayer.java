@@ -12,6 +12,7 @@ import ds.ov2.bignat.Bignat;
 import org.bouncycastle.math.ec.ECCurve;
 
 
+
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -33,17 +34,31 @@ class SimulatedMPCPlayer implements MPCPlayer {
     public ECPoint Ri_EC;
     public byte[] Ri_Hash;
     public BigInteger e_BI;
+    public short signature_counter;
 
     //For preloading
     public BigInteger k_Bn_pre;
     public ECPoint Ri_EC_pre;
     public byte[] Ri_Hash_pre;
-    
-    //Storing pubkeys
-    public byte[][] pub_key_hashes;
-    public byte[][] pub_keys;
+
+    class Player {
+        public byte[] pubKey = null;
+        public boolean pubKeyValid = false;
+        public byte[] pubKeyHash = null;
+        public boolean pubKeyHashValid = false;
+    }
+
+    private Player[] players;
     
     public ECPoint Yagg;
+
+    public short CARD_INDEX_THIS;
+    public static short NUM_PLAYERS;
+
+    //Consts - should be moved somewhere else
+    public static final short MAX_NUM_PLAYERS = (short) 15;
+    public static final short BASIC_ECC_LENGTH = (short) 32;
+    public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
 
     public SimulatedMPCPlayer(short playerID, ECPoint G, BigInteger n, ECCurve curve) throws NoSuchAlgorithmException {
         this.playerID = playerID;
@@ -53,15 +68,19 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
         this.KeyGen();
         SecureRandom random = new SecureRandom();
-        secret_seed = new byte[32];
+        secret_seed = new byte[SECRET_SEED_SIZE];
         random.nextBytes(secret_seed);
     }
 
+    // TODO: Change assertions to conditions + exceptions
     //
     // MPCPlayer methods
     //
     @Override
     public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
+        assert (i > signature_counter);
+        signature_counter = i;
+
         Bignat counter = Util.makeBignatFromValue((int) i);
         ECPoint Rin = curve_G.multiply(new BigInteger(PRF(counter, this.secret_seed)));
         return Rin.getEncoded(false);
@@ -93,15 +112,30 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerID) throws Exception {
-        pub_key_hashes = new byte[MPCGlobals.players.size() - 1][]; 
-        pub_keys =  new byte[MPCGlobals.players.size() - 1][];
+    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex) throws Exception {
+        assert (numPlayers <= MAX_NUM_PLAYERS && numPlayers >= 1);
+        assert (thisPlayerIndex < MAX_NUM_PLAYERS && thisPlayerIndex >= 0);
+
+        players = new Player[numPlayers];
+        for (short i = 0; i < numPlayers;i++) {
+            players[i] = new Player();
+
+            players[i].pubKey = new byte[BASIC_ECC_LENGTH];
+            players[i].pubKeyHash = new byte[BASIC_ECC_LENGTH];
+        }
+
+        // simulated player can currently participate in only one quorum
+        Reset((short) 0);
+
+        CARD_INDEX_THIS = thisPlayerIndex;
+        NUM_PLAYERS = numPlayers;
+
         return true;
     }
 
     @Override
     public boolean Reset(short quorumIndex) throws Exception {
-        // TODO: at the moment, simulated player performs nothing
+        Invalidate(true);
         return true;
     }
 
@@ -124,13 +158,12 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr) throws Exception {
-        if (playerIndex > this.GetPlayerIndex(quorumIndex))
-        {
-            pub_key_hashes[playerIndex - 1] = hash_arr;
-        } else {
-            pub_key_hashes[playerIndex] = hash_arr;
-        }
-        
+        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS);
+        //check if commitment is already stored
+        assert (!players[playerIndex].pubKeyHashValid);
+
+        players[playerIndex].pubKeyHash = hash_arr;
+        players[playerIndex].pubKeyHashValid = true;
         return true;
     }
 
@@ -141,25 +174,27 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
+        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS);
+        assert (!players[playerIndex].pubKeyValid);
+
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.update(pub_arr);
         byte[] hash_comp = md.digest();
-        boolean is_valid;
-        if (playerIndex > this.GetPlayerIndex(quorumIndex)) {
-            is_valid = Arrays.equals(hash_comp, pub_key_hashes[playerIndex - 1]);
-            pub_keys[playerIndex - 1] = pub_arr;
-        } else {
-            is_valid = Arrays.equals(hash_comp, pub_key_hashes[playerIndex]);
-            pub_keys[playerIndex] = pub_arr;
-        }
-        return is_valid;
+        assert (Arrays.equals(hash_comp, players[playerIndex].pubKeyHash));
+
+        players[playerIndex].pubKey = pub_arr;
+        players[playerIndex].pubKeyValid = true;
+        return true;
     }
 
     @Override
     public boolean RetrieveAggPubKey(short quorumIndex) throws Exception {
         Yagg = curve.getInfinity();
-        for (byte[] pubkey : pub_keys){
-            Yagg = Yagg.add(Util.ECPointDeSerialization(curve, pubkey, 0)); 
+        for (short i = 0; i < NUM_PLAYERS; i++){
+            if (i != CARD_INDEX_THIS){
+                assert (players[i].pubKeyValid);
+                Yagg = Yagg.add(Util.ECPointDeSerialization(curve, players[i].pubKey, 0));
+            }
         }
         Yagg = Yagg.add(pub_key_EC);
         return true;
@@ -210,6 +245,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
                             
     private BigInteger Sign(Bignat i, ECPoint R_EC, byte[] plaintext) throws NoSuchAlgorithmException {
+        // TODO: Check if "i" hasn't been used before
         //Gen e (e will be the same in all signature shares)
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         
@@ -240,5 +276,28 @@ class SimulatedMPCPlayer implements MPCPlayer {
         md.update(i.as_byte_array());
         md.update(seed);
         return md.digest();
+    }
+
+    private void Invalidate(boolean bEraseAllArrays) {
+        SecureRandom random = new SecureRandom();
+
+        if (bEraseAllArrays) {
+            random.nextBytes(secret_seed);
+            priv_key_BI = new BigInteger(256, random);
+            pub_key_EC = curve_G.multiply(priv_key_BI);
+            random.nextBytes(pub_key_Hash);
+        }
+
+        signature_counter = 0;
+
+        for (Player playerI : players) {
+            playerI.pubKeyHashValid = false;
+            playerI.pubKeyValid = false;
+            if (bEraseAllArrays)
+            {
+                random.nextBytes(playerI.pubKey);
+                random.nextBytes(playerI.pubKeyHash);
+            }
+        }
     }
 }
