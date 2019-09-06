@@ -71,14 +71,13 @@ class SimulatedMPCPlayer implements MPCPlayer {
         secret_seed = new byte[SECRET_SEED_SIZE];
         random.nextBytes(secret_seed);
     }
-
-    // TODO: Change assertions to conditions + exceptions
+    
     //
     // MPCPlayer methods
     //
     @Override
     public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
-        assert (i > signature_counter);
+        assert (i > signature_counter) : "Signature counter " + i + " has already been used";
         signature_counter = i;
 
         Bignat counter = Util.makeBignatFromValue((int) i);
@@ -113,8 +112,8 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex) throws Exception {
-        assert (numPlayers <= MAX_NUM_PLAYERS && numPlayers >= 1);
-        assert (thisPlayerIndex < MAX_NUM_PLAYERS && thisPlayerIndex >= 0);
+        assert (numPlayers <= MAX_NUM_PLAYERS && numPlayers >= 1) : "Number of players is out of accepted interval";
+        assert (thisPlayerIndex < MAX_NUM_PLAYERS && thisPlayerIndex >= 0) : "Player's index is out of accepted interval";
 
         players = new Player[numPlayers];
         for (short i = 0; i < numPlayers;i++) {
@@ -158,9 +157,9 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr) throws Exception {
-        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS);
+        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS) : "Player's index is out of accepted interval";
         //check if commitment is already stored
-        assert (!players[playerIndex].pubKeyHashValid);
+        assert (!players[playerIndex].pubKeyHashValid) : "Player's commitment has already been stored";
 
         players[playerIndex].pubKeyHash = hash_arr;
         players[playerIndex].pubKeyHashValid = true;
@@ -174,13 +173,13 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
-        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS);
-        assert (!players[playerIndex].pubKeyValid);
+        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS) : "Player's index is out of accepted interval";
+        assert (!players[playerIndex].pubKeyValid) : "Player's public key has already been stored";;
 
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.update(pub_arr);
         byte[] hash_comp = md.digest();
-        assert (Arrays.equals(hash_comp, players[playerIndex].pubKeyHash));
+        assert (Arrays.equals(hash_comp, players[playerIndex].pubKeyHash)) : "Pubkey to be stored does not match stored hash";
 
         players[playerIndex].pubKey = pub_arr;
         players[playerIndex].pubKeyValid = true;
@@ -192,7 +191,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
         Yagg = curve.getInfinity();
         for (short i = 0; i < NUM_PLAYERS; i++){
             if (i != CARD_INDEX_THIS){
-                assert (players[i].pubKeyValid);
+                assert (players[i].pubKeyValid) : "Player's (" + i + ") public key is not valid";
                 Yagg = Yagg.add(Util.ECPointDeSerialization(curve, players[i].pubKey, 0));
             }
         }
