@@ -79,8 +79,8 @@ public class MPCTestClient {
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 4;
-            //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
-            runCfg.numPlayers = 4;
+            //runCfg.numWholeTestRepeats = 10; //more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
+            runCfg.numPlayers = 3;
             runCfg.cardName = "gd60";
 
             
@@ -133,7 +133,7 @@ public class MPCTestClient {
 
         // Simulate all remaining participants in protocol in addition to MPC card(s) 
         for (; cardID < runCfg.numPlayers; cardID++) {
-            mpcGlobals.players.add(new SimulatedMPCPlayer(cardID, mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
+            mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
         }
 
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
@@ -146,8 +146,13 @@ public class MPCTestClient {
             //
             short playerIndex = 0;
             for (MPCPlayer player : mpcGlobals.players) {
+                // Reset
+                String operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
                 // Setup
-                String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+                operationName = "Setting Up the MPC Parameters (INS_SETUP)";
                 System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                 
@@ -267,7 +272,7 @@ public class MPCTestClient {
 
         // Simulate all remaining participants in protocol in addition to MPC card(s) 
         for (; cardID < runCfg.numPlayers; cardID++) {
-            mpcGlobals.players.add(new SimulatedMPCPlayer(cardID, mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
+            mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
         }
 
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
@@ -280,8 +285,13 @@ public class MPCTestClient {
             //
             short playerIndex = 0;
             for (MPCPlayer player : mpcGlobals.players) {
+                // Reset
+                String operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
                 // Setup
-                String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+                operationName = "Setting Up the MPC Parameters (INS_SETUP)";
                 System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
@@ -393,7 +403,7 @@ public class MPCTestClient {
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
-        boolean operationResult;
+
         // Push all public keys
         operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
         for (MPCPlayer playerTarget : mpcGlobals.players) {
