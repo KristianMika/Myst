@@ -35,11 +35,15 @@ class SimulatedMPCPlayer implements MPCPlayer {
     public byte[] Ri_Hash;
     public BigInteger e_BI;
     public short signature_counter;
+    public Bignat signature_counter_Bn;
 
     //For preloading
     public BigInteger k_Bn_pre;
     public ECPoint Ri_EC_pre;
     public byte[] Ri_Hash_pre;
+
+    public short num_commitments_count;
+    public short num_pubkeys_count;
 
     class Player {
         public byte[] pubKey = null;
@@ -49,8 +53,10 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     private Player[] players;
+    private StateModel state = null;
     
     public ECPoint Yagg;
+    public short Yagg_shares_count;
 
     public short CARD_INDEX_THIS;
     public static short NUM_PLAYERS;
@@ -60,23 +66,30 @@ class SimulatedMPCPlayer implements MPCPlayer {
     public static final short BASIC_ECC_LENGTH = (short) 32;
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
 
-    public SimulatedMPCPlayer(short playerID, ECPoint G, BigInteger n, ECCurve curve) throws NoSuchAlgorithmException {
+    public SimulatedMPCPlayer(short playerID, ECPoint G, BigInteger n, ECCurve curve) throws NoSuchAlgorithmException, StateModel.stateException {
         this.playerID = playerID;
         this.curve_G = G;
         this.curve_n = n;
         this.curve = curve;
 
-        this.KeyGen();
+        Yagg = curve.getInfinity(); // TODO: Initialise Yagg somwhere else
+        this.KeyGen(); // TODO: Remove Keygen
         SecureRandom random = new SecureRandom();
         secret_seed = new byte[SECRET_SEED_SIZE];
         random.nextBytes(secret_seed);
+        signature_counter_Bn = new Bignat((short) 2);
+
+
+        state = new StateModel();
+        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
-    
+
     //
     // MPCPlayer methods
     //
     @Override
     public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
         assert (i > signature_counter) : "Signature counter " + i + " has already been used";
         signature_counter = i;
 
@@ -112,6 +125,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
         assert (numPlayers <= MAX_NUM_PLAYERS && numPlayers >= 1) : "Number of players is out of accepted interval";
         assert (thisPlayerIndex < MAX_NUM_PLAYERS && thisPlayerIndex >= 0) : "Player's index is out of accepted interval";
 
@@ -129,50 +143,86 @@ class SimulatedMPCPlayer implements MPCPlayer {
         CARD_INDEX_THIS = thisPlayerIndex;
         NUM_PLAYERS = numPlayers;
 
+        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
         return true;
     }
 
     @Override
     public boolean Reset(short quorumIndex) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
         Invalidate(true);
+        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
         return true;
     }
 
     @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
         Bignat roundBn = Util.makeBignatFromValue(round);
         return Sign(roundBn, Util.ECPointDeSerialization(curve, Rn, 0), plaintext);
     }
 
     @Override
     public boolean GenKeyPair(short quorumIndex) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
+
+        Invalidate(false);
+
+        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
+
         this.KeyGen();
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_PRIVATEGENERATED);
+
         return true;
     }
 
     @Override
     public boolean RetrievePubKeyHash(short quorumIndex) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_RetrieveCommitment);
+
+        // In extreme case, when quorum is of size 1 and StoreCommitment() is skipped, the state transition has to happen here
+        if (NUM_PLAYERS == 1) {
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);
+        }
+
         return true;
     }
 
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_StoreCommitment);
+
         assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS) : "Player's index is out of accepted interval";
-        //check if commitment is already stored
         assert (!players[playerIndex].pubKeyHashValid) : "Player's commitment has already been stored";
 
         players[playerIndex].pubKeyHash = hash_arr;
         players[playerIndex].pubKeyHashValid = true;
+        num_commitments_count++;
+
+        if (num_commitments_count == NUM_PLAYERS) {
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);
+        }
         return true;
     }
 
     @Override
     public byte[] RetrievePubKey(short quorumIndex) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetYi);
+
+        // In extreme case, when quorum is of size 1 and SetYs() is skipped, the state transition has to happen here
+        if (NUM_PLAYERS == 1) {
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_SHARESCOLLECTED);
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
+        }
+
         return pub_key_EC.getEncoded(false);
     }
 
     @Override
     public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetYs);
         assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS) : "Player's index is out of accepted interval";
         assert (!players[playerIndex].pubKeyValid) : "Player's public key has already been stored";;
 
@@ -183,24 +233,28 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
         players[playerIndex].pubKey = pub_arr;
         players[playerIndex].pubKeyValid = true;
+        num_pubkeys_count++;
+        Yagg = Yagg.add(Util.ECPointDeSerialization(curve, pub_arr, 0));
+        Yagg_shares_count++;
+        if (num_pubkeys_count == NUM_PLAYERS){
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_SHARESCOLLECTED);
+            if (Yagg_shares_count == NUM_PLAYERS){
+                state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
+            }
+        }
         return true;
     }
 
     @Override
     public boolean RetrieveAggPubKey(short quorumIndex) throws Exception {
-        Yagg = curve.getInfinity();
-        for (short i = 0; i < NUM_PLAYERS; i++){
-            if (i != CARD_INDEX_THIS){
-                assert (players[i].pubKeyValid) : "Player's (" + i + ") public key is not valid";
-                Yagg = Yagg.add(Util.ECPointDeSerialization(curve, players[i].pubKey, 0));
-            }
-        }
-        Yagg = Yagg.add(pub_key_EC);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetY);
         return true;
     }
     
     @Override
-    public byte[] Encrypt(short quorumIndex, byte[] plaintext) throws Exception { 
+    public byte[] Encrypt(short quorumIndex, byte[] plaintext) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Encrypt);
+
         SecureRandom rnd = new SecureRandom();
         BigInteger rand_r = new BigInteger(256, rnd);
         MPCGlobals.c1 = curve_G.multiply(rand_r);
@@ -210,6 +264,8 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public byte[] Decrypt(short quorumIndex, byte[] ciphertext) throws Exception {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_DecryptShare);
+
         ECPoint c1 = Util.ECPointDeSerialization(curve, ciphertext, 0);
         ECPoint xc1_share = c1.multiply(priv_key_BI);
         return xc1_share.getEncoded(false);
@@ -238,13 +294,20 @@ class SimulatedMPCPlayer implements MPCPlayer {
         }
         
         pub_key_EC = curve_G.multiply(priv_key_BI);
+        num_pubkeys_count++;
+
+        Yagg = Yagg.add(pub_key_EC);
+        Yagg_shares_count++;
+
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.update(pub_key_EC.getEncoded(false));
         pub_key_Hash = md.digest();
+        num_commitments_count++;
     }
                             
     private BigInteger Sign(Bignat i, ECPoint R_EC, byte[] plaintext) throws NoSuchAlgorithmException {
-        // TODO: Check if "i" hasn't been used before
+        assert (signature_counter_Bn.lesser(i)) : "Signature counter has already been used.";
+        signature_counter_Bn.copy(i);
         //Gen e (e will be the same in all signature shares)
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         
@@ -277,7 +340,9 @@ class SimulatedMPCPlayer implements MPCPlayer {
         return md.digest();
     }
 
-    private void Invalidate(boolean bEraseAllArrays) {
+    private void Invalidate(boolean bEraseAllArrays) throws StateModel.stateException {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Invalidate);
+
         SecureRandom random = new SecureRandom();
 
         if (bEraseAllArrays) {
@@ -285,9 +350,13 @@ class SimulatedMPCPlayer implements MPCPlayer {
             priv_key_BI = new BigInteger(256, random);
             pub_key_EC = curve_G.multiply(priv_key_BI);
             random.nextBytes(pub_key_Hash);
+            num_commitments_count = 0;
+            num_pubkeys_count = 0;
         }
-
+        Yagg = curve.getInfinity();
+        Yagg_shares_count = 0;
         signature_counter = 0;
+        signature_counter_Bn.zero();
 
         for (Player playerI : players) {
             playerI.pubKeyHashValid = false;
@@ -298,5 +367,6 @@ class SimulatedMPCPlayer implements MPCPlayer {
                 random.nextBytes(playerI.pubKeyHash);
             }
         }
+        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
 }
