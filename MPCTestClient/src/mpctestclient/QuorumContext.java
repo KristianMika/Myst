@@ -10,6 +10,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 
+import mpc.Consts;
+
 
 
 public class QuorumContext {
@@ -85,8 +87,13 @@ public class QuorumContext {
 
         Reset();
 
-        assert (numPlayers <= MAX_NUM_PLAYERS && numPlayers >= 1) : "Number of players is out of accepted interval";
-        assert (thisPlayerIndex < MAX_NUM_PLAYERS && thisPlayerIndex >= 0) : "Player's index is out of accepted interval";
+        if (numPlayers > MAX_NUM_PLAYERS || numPlayers < 1) {
+            throw new quorumContextException(Consts.SW_TOOMANYPLAYERS);
+        }
+
+        if (thisPlayerIndex >= MAX_NUM_PLAYERS || thisPlayerIndex < 0){
+            throw new quorumContextException(Consts.SW_INVALIDPLAYERINDEX);
+        }
 
         NUM_PLAYERS = numPlayers;
         CARD_INDEX_THIS = thisPlayerIndex;
@@ -138,9 +145,11 @@ public class QuorumContext {
         num_commitments_count++;
     }
 
-    public byte[] Gen_Rin(short i) throws StateModel.stateException, NoSuchAlgorithmException {
+    public byte[] Gen_Rin(short i) throws StateModel.stateException, NoSuchAlgorithmException, quorumContextException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
-        assert (i > signature_counter) : "Signature counter " + i + " has already been used";
+        if (i <= signature_counter) {
+            throw new quorumContextException(Consts.SW_INVALIDCOUNTER);
+        }
         signature_counter = i;
 
         Bignat counter = Util.makeBignatFromValue((int) i);
@@ -151,7 +160,7 @@ public class QuorumContext {
     public boolean RetrievePubKeyHash() throws Exception {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_RetrieveCommitment);
 
-        // In extreme case, when quorum is of size 1 and StoreCommitment() is skipped, the state transition has to happen here
+        // In extreme case, when quorum is of size 1 and StorePubKeyHash() is skipped, the state transition has to happen here
         if (NUM_PLAYERS == 1) {
             state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);
         }
@@ -162,8 +171,13 @@ public class QuorumContext {
     public boolean StorePubKeyHash(short playerIndex, byte[] hash_arr) throws Exception {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_StoreCommitment);
 
-        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS) : "Player's index is out of accepted interval";
-        assert (!players[playerIndex].pubKeyHashValid) : "Player's commitment has already been stored";
+        if (playerIndex < 0 || playerIndex == CARD_INDEX_THIS || playerIndex >= NUM_PLAYERS) {
+            throw new quorumContextException(Consts.SW_INVALIDPLAYERINDEX);
+        }
+
+        if (players[playerIndex].pubKeyHashValid) {
+            throw new quorumContextException(Consts.SW_COMMITMENTALREADYSTORED);
+        }
 
         players[playerIndex].pubKeyHash = hash_arr;
         players[playerIndex].pubKeyHashValid = true;
@@ -179,9 +193,11 @@ public class QuorumContext {
     public byte[] RetrievePubKey() throws Exception {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetYi);
 
-        assert (players[CARD_INDEX_THIS].pubKeyValid) : "This card's pubkey is not valid";
+        if (!players[CARD_INDEX_THIS].pubKeyValid) {
+            throw new quorumContextException(Consts.SW_INVALIDYSHARE);
+        }
 
-        // In extreme case, when quorum is of size 1 and SetYs() is skipped, the state transition has to happen here
+        // In extreme case, when quorum is of size 1 and StorePubKey() is skipped, the state transition has to happen here
         if (NUM_PLAYERS == 1) {
             state.MakeStateTransition(StateModel.STATE_KEYGEN_SHARESCOLLECTED);
             state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
@@ -193,13 +209,22 @@ public class QuorumContext {
 
     public boolean StorePubKey(short playerIndex, byte[] pub_arr) throws Exception {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetYs);
-        assert (playerIndex >= 0 && playerIndex != CARD_INDEX_THIS && playerIndex < NUM_PLAYERS) : "Player's index is out of accepted interval";
-        assert (!players[playerIndex].pubKeyValid) : "Player's public key has already been stored";
+
+        if (playerIndex < 0 || playerIndex == CARD_INDEX_THIS || playerIndex >= NUM_PLAYERS) {
+            throw new quorumContextException(Consts.SW_INVALIDPLAYERINDEX);
+        }
+
+        if (players[playerIndex].pubKeyValid) {
+            throw new quorumContextException(Consts.SW_SHAREALREADYSTORED);
+        }
 
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.update(pub_arr);
         byte[] hash_comp = md.digest();
-        assert (Arrays.equals(hash_comp, players[playerIndex].pubKeyHash)) : "Pubkey to be stored does not match stored hash";
+
+        if (!Arrays.equals(hash_comp, players[playerIndex].pubKeyHash)) {
+            throw new quorumContextException(Consts.SW_INVALIDCOMMITMENT);
+        }
 
         players[playerIndex].pubKey = pub_arr;
         players[playerIndex].pubKeyValid = true;
@@ -224,12 +249,14 @@ public class QuorumContext {
     // Crypto ops
     //
 
-    public BigInteger Sign(int round, byte[] Rn, byte[] plaintext) throws NoSuchAlgorithmException, StateModel.stateException {
+    public BigInteger Sign(int round, byte[] Rn, byte[] plaintext) throws NoSuchAlgorithmException, StateModel.stateException, quorumContextException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
         Bignat roundBn = Util.makeBignatFromValue(round);
         ECPoint R_EC = Util.ECPointDeSerialization(curve, Rn, 0);
 
-        assert (signature_counter_Bn.lesser(roundBn)) : "Signature counter has already been used.";
+        if (!signature_counter_Bn.lesser(roundBn)) {
+            throw new quorumContextException(Consts.SW_INVALIDCOUNTER);
+        }
         signature_counter_Bn.copy(roundBn);
         //Gen e (e will be the same in all signature shares)
         MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -310,5 +337,45 @@ public class QuorumContext {
         md.update(i.as_byte_array());
         md.update(seed);
         return md.digest();
+    }
+
+    // Error handling
+    static class quorumContextException extends Exception {
+        quorumContextException(short error) {
+            super(getErrorMessage(error));
+        }
+    }
+    
+    static String getErrorMessage(short error) {
+        String message = "";
+        switch (error){
+            case Consts.SW_TOOMANYPLAYERS:
+                message = "Number of players is outside the accepted interval.";
+                break;
+            case Consts.SW_INVALIDCOMMITMENT :
+                message = "Commitment is not valid.";
+                break;
+            case Consts.SW_INVALIDYSHARE:
+                message = "Share is not valid.";
+                break;
+            case Consts.SW_SHAREALREADYSTORED:
+                message = "Share is already stored.";
+                break;
+            case Consts.SW_INVALIDPLAYERINDEX:
+                message = "Player's index is not valid.";
+                break;
+            case Consts.SW_COMMITMENTALREADYSTORED:
+                message = "Commitment is already stored.";
+                break;
+            case Consts.SW_INVALIDCOUNTER:
+                message = "Provided counter is not valid.";
+                break;
+            case Consts.SW_INVALIDQUORUMINDEX:
+                message = "Invalid quorum index.";
+                break;
+            default:
+                message = "Unknown error";
+        }
+        return message;
     }
 }

@@ -6,6 +6,8 @@ import org.bouncycastle.math.ec.ECPoint;
 
 import org.bouncycastle.math.ec.ECCurve;
 
+import mpc.Consts;
+
 
 
 /**
@@ -37,7 +39,9 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex) throws Exception {
-        assert (quorumIndex >= 0 && quorumIndex < MAX_QUORUMS) : "Quorum index is out of accepted interval";
+        if (quorumIndex < 0 || quorumIndex >= MAX_QUORUMS) {
+            throw new SimulatedPlayerException(Consts.SW_INVALIDQUORUMINDEX);
+        }
         return quorums[quorumIndex].Setup(numPlayers, thisPlayerIndex);
     }
 
@@ -128,5 +132,11 @@ class SimulatedMPCPlayer implements MPCPlayer {
 
     @Override
     public void disconnect() {
+    }
+
+    static class SimulatedPlayerException extends Exception {
+        SimulatedPlayerException(short error) {
+            super(QuorumContext.getErrorMessage(error));
+        }
     }
 }
