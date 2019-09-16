@@ -10,7 +10,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 
-import mpc.Consts;
 
 
 
@@ -96,11 +95,11 @@ public class QuorumContext {
 
         // approves number of players
         if (numPlayers > MAX_NUM_PLAYERS || numPlayers < 1) {
-            throw new quorumContextException(Consts.SW_TOOMANYPLAYERS);
+            throw new quorumContextException("Number of players is outside the accepted interval.");
         }
 
         if (thisPlayerIndex >= MAX_NUM_PLAYERS || thisPlayerIndex < 0){
-            throw new quorumContextException(Consts.SW_INVALIDPLAYERINDEX);
+            throw new quorumContextException("Player's index is not valid.");
         }
 
         NUM_PLAYERS = numPlayers;
@@ -184,7 +183,7 @@ public class QuorumContext {
 
         // checks if the counter hasn't been used before == (if the counter is bigger then the previous one)
         if (i <= signature_counter) {
-            throw new quorumContextException(Consts.SW_INVALIDCOUNTER);
+            throw new quorumContextException("Provided counter is not valid.");
         }
 
         // stores the counter for later comparison
@@ -225,12 +224,12 @@ public class QuorumContext {
 
         // approves player's index
         if (playerIndex < 0 || playerIndex == CARD_INDEX_THIS || playerIndex >= NUM_PLAYERS) {
-            throw new quorumContextException(Consts.SW_INVALIDPLAYERINDEX);
+            throw new quorumContextException("Player's index is not valid.");
         }
 
         // makes sure the player hasn't submitted his pubkey hash before
         if (players[playerIndex].pubKeyHashValid) {
-            throw new quorumContextException(Consts.SW_COMMITMENTALREADYSTORED);
+            throw new quorumContextException("Commitment is already stored.");
         }
 
         // stores the hash
@@ -254,7 +253,7 @@ public class QuorumContext {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetYi);
 
         if (!players[CARD_INDEX_THIS].pubKeyValid) {
-            throw new quorumContextException(Consts.SW_INVALIDYSHARE);
+            throw new quorumContextException("Share is not valid.");
         }
 
         // In extreme case, when quorum is of size 1 and StorePubKey() is skipped, the state transition has to happen here
@@ -280,12 +279,12 @@ public class QuorumContext {
 
         // makes sure player's index is valid
         if (playerIndex < 0 || playerIndex == CARD_INDEX_THIS || playerIndex >= NUM_PLAYERS) {
-            throw new quorumContextException(Consts.SW_INVALIDPLAYERINDEX);
+            throw new quorumContextException("Player's index is not valid.");
         }
 
         // checks that the player hasn't submitted his pubkey before
         if (players[playerIndex].pubKeyValid) {
-            throw new quorumContextException(Consts.SW_SHAREALREADYSTORED);
+            throw new quorumContextException("Share is already stored.");
         }
 
         // computes the hash of submitted pubkey and compares it to the hash submitted before
@@ -293,7 +292,7 @@ public class QuorumContext {
         md.update(pub_arr);
         byte[] hash_comp = md.digest();
         if (!Arrays.equals(hash_comp, players[playerIndex].pubKeyHash)) {
-            throw new quorumContextException(Consts.SW_INVALIDCOMMITMENT);
+            throw new quorumContextException("Commitment is not valid.");
         }
 
         // storing pubkey
@@ -349,7 +348,7 @@ public class QuorumContext {
 
         // checks if the counter hasn't been used before == (if the counter is bigger then the previous one)
         if (!signature_counter_Bn.lesser(roundBn)) {
-            throw new quorumContextException(Consts.SW_INVALIDCOUNTER);
+            throw new quorumContextException("Provided counter is not valid.");
         }
         // stores the counter for later comparison
         signature_counter_Bn.copy(roundBn);
@@ -466,47 +465,8 @@ public class QuorumContext {
 
     // used for handling quorum context errors
     static class quorumContextException extends Exception {
-        quorumContextException(short error) {
-            super(getErrorMessage(error));
+        quorumContextException(String errorMessage) {
+            super(errorMessage);
         }
-    }
-
-    /**
-     * Resolves error codes to error messages
-     *
-     * @param error Error code
-     * @return Error message corresponding to the error code
-     */
-    static String getErrorMessage(short error) {
-        String message = "";
-        switch (error){
-            case Consts.SW_TOOMANYPLAYERS:
-                message = "Number of players is outside the accepted interval.";
-                break;
-            case Consts.SW_INVALIDCOMMITMENT :
-                message = "Commitment is not valid.";
-                break;
-            case Consts.SW_INVALIDYSHARE:
-                message = "Share is not valid.";
-                break;
-            case Consts.SW_SHAREALREADYSTORED:
-                message = "Share is already stored.";
-                break;
-            case Consts.SW_INVALIDPLAYERINDEX:
-                message = "Player's index is not valid.";
-                break;
-            case Consts.SW_COMMITMENTALREADYSTORED:
-                message = "Commitment is already stored.";
-                break;
-            case Consts.SW_INVALIDCOUNTER:
-                message = "Provided counter is not valid.";
-                break;
-            case Consts.SW_INVALIDQUORUMINDEX:
-                message = "Invalid quorum index.";
-                break;
-            default:
-                message = "Unknown error";
-        }
-        return message;
     }
 }
