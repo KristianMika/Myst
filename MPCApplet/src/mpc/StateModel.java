@@ -41,15 +41,17 @@ public class StateModel {
     public static final short FNC_QuorumContext_Sign_GetCurrentCounter  = (short) 0xf014;
     
     
-    public static final short FNC_QuorumContext_VerifyCallerAuthorization = (short) 0xf011;
+    public static final short FNC_QuorumContext_VerifyCallerAuthorization = (short) 0xf015;
     
-    public static final short FNC_QuorumContext_GenerateRandomData      = (short) 0xf012;
+    public static final short FNC_QuorumContext_GenerateRandomData      = (short) 0xf016;
     
-    
+    public static final short FNC_QuorumContext_SetUserPubKey           = (short) 0xf017;
+
+    public static final short FNC_INS_PERSONALIZE_SET_USER_AUTH_PUBKEY  = (short) 0xf018;
     
     
     public void CheckAllowedFunction(short requestedFnc) {
-        CheckAllowedFunction(requestedFnc, STATE_KEYGEN);
+            CheckAllowedFunction(requestedFnc, STATE_KEYGEN);
     }
     
     public short MakeStateTransition(short newState) {
@@ -82,6 +84,7 @@ public class StateModel {
                 
             case STATE_KEYGEN_CLEARED:
                 if (requestedFnc == FNC_QuorumContext_InitAndGenerateKeyPair) return;
+                if (requestedFnc == FNC_QuorumContext_SetUserPubKey) return;
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED);
                 break;
 

@@ -40,7 +40,11 @@ public class QuorumContext {
     private short num_commitments_count  = 0;     // number of stored commitments
 
     private StateModel state = null; // current state of the protocol run - some operations are not available in given state    
-    
+
+    // ACL
+    private HostACL[] hostsACLs;
+    private short numOfHosts;
+    private boolean acl_provided = false;
     
     public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOps cryptoOperations) {
         cryptoOps = cryptoOperations;
@@ -67,8 +71,31 @@ public class QuorumContext {
 
         state = new StateModel();
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
+
+        hostsACLs = new HostACL[Consts.MAX_NUM_HOSTS];
+        for (short i=0; i < hostsACLs.length; i++) {
+            hostsACLs[i] = new HostACL();
+        }
+        numOfHosts = 0;
     }
-    
+
+    public void SetUserAuthPubkey(byte[] userPubkey, short pubkeyOffset, short acl, byte hostIndex){
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetUserPubKey);
+
+        // check for number of number of hosts
+        if (numOfHosts >= Consts.MAX_NUM_HOSTS) {
+            ISOException.throwIt(Consts.SW_TOOMANYHOSTS);
+        }
+
+        // check for host's index
+        if (hostIndex < 0 || hostIndex >= Consts.MAX_NUM_HOSTS || hostsACLs[hostIndex].isPubkeyIsValid()) {
+            ISOException.throwIt(Consts.SW_INVALID_HOST_INDEX);
+        }
+        numOfHosts++;
+        acl_provided = true;
+        hostsACLs[hostIndex].SetUserAuthPubkey(userPubkey, pubkeyOffset, acl);
+    }
+
     public void SetupNew(short numPlayers, short thisPlayerIndex) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
         // Reset previous state
@@ -377,15 +404,20 @@ public class QuorumContext {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
         return signature_counter.copy_to_buffer(outputArray, outputBaseOffset);
     }
-        
-    
-    /**
-     * Verify if caller is authorized to submit request for given operation 
-     * Right now, no check is performed and request is always allowed
-     * @param apdu  
-     */
+
+
     public void VerifyCallerAuthorization(APDU apdu, short requestedFnc) {
-        //state.CheckAllowedFunction(StateModel.FNC_QuorumContext_VerifyCallerAuthorization);
-        // TODO: enable verification if required
+        byte[] apduBuffer = apdu.getBuffer();
+        byte hostIndex = apduBuffer[Consts.APDU_HOST_INDEX];
+
+        // check for host's index
+        if (hostIndex < 0 || hostIndex >= Consts.MAX_NUM_HOSTS) {
+            ISOException.throwIt(Consts.SW_INVALID_HOST_INDEX);
+        }
+
+        // in case no ACL was provided - also used for operations that are executed before storing ACL
+        if (acl_provided) {
+            hostsACLs[hostIndex].VerifyCallerAuthorization(requestedFnc);
+        }
     }
 }

@@ -2,7 +2,9 @@ package mpctestclient;
 
 import ds.ov2.bignat.Bignat;
 import java.math.BigInteger;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,11 +31,14 @@ public class CardMPCPlayer implements MPCPlayer {
         public byte[] pub_key_Hash;
         ECPoint pubKey;
         ECPoint AggPubKey;
+        Bignat requestCounter;
 
         QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
             this.quorumIndex = quorumIndex;
             this.playerIndex = playerIndex;
             this.numPlayers = numPlayers;
+            requestCounter = new Bignat((short) 2, false);
+            requestCounter.zero();
         }
     }
     CardChannel channel = null;
@@ -81,8 +86,8 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
-        byte[] rin = RetrieveRI(channel, quorumIndex, i);
+    public byte[] Gen_Rin(short quorumIndex, short i, byte hostIndex) throws NoSuchAlgorithmException, Exception {
+        byte[] rin = RetrieveRI(channel, quorumIndex, i, hostIndex);
         System.out.format(logFormat, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", Util.bytesToHex(rin));
         return rin;
     }
@@ -112,8 +117,8 @@ public class CardMPCPlayer implements MPCPlayer {
         ResponseAPDU response = transmit(channel, cmd);
     }
 
-    public boolean GetCardInfo() throws Exception {
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_GETCARDINFO, 0, 0);
+    public boolean GetCardInfo(byte hostIndex) throws Exception {
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_GETCARDINFO, 0, hostIndex);
         ResponseAPDU response = transmit(channel, cmd);
 
         // Parse response 
@@ -191,10 +196,21 @@ public class CardMPCPlayer implements MPCPlayer {
         return checkSW(response);
     }
 
-    private byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i) throws Exception {
+    @Override
+    public boolean SetHostAuthPubkey(ECPoint pubkey, short hostPermissions, short quorumIndex, byte hostIndex) throws Exception {
+        byte[] pubkeyByte = pubkey.getEncoded(false);
+        byte[] packetData = preparePacketData(Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY, quorumIndex, hostPermissions);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY,
+                0x00, hostIndex, Util.concat(packetData, pubkeyByte));
+        ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+
+    }
+
+    private byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, (short) i);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_RETRIEVE_RI,
-                0x00, 0x00, packetData);
+                0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
         ///We do nothing with the key, as we just use the Aggregated R in the test cases
@@ -275,40 +291,40 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex) throws Exception {
+    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex, byte hostIndex) throws Exception {
         quorumsCtxMap.put(quorumIndex, new QuorumContext(quorumIndex, thisPlayerIndex, numPlayers));
 
         byte[] packetData = preparePacketData(Consts.INS_QUORUM_SETUP_NEW, quorumIndex, numPlayers, thisPlayerIndex);
 
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_SETUP_NEW, 0,
-                0, packetData);
+                hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
         return checkSW(response);
     }
 
     @Override
-    public boolean Reset(short quorumIndex) throws Exception {
+    public boolean Reset(short quorumIndex, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_QUORUM_RESET, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_RESET, 0x00, 0x00, packetData);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_RESET, 0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
-    public boolean GenKeyPair(short quorumIndex) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_INIT, quorumIndex);
+    public boolean GenKeyPair(short quorumIndex, byte hostIndex, BigInteger hostPrivKey) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_INIT, quorumIndex, (short) hostIndex);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_INIT, 0x00,
-                0x00, packetData);
+                hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
-    public boolean RetrievePubKeyHash(short quorumIndex) throws Exception {
+    public boolean RetrievePubKeyHash(short quorumIndex, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_COMMITMENT,
-                0x00, 0x00, packetData);
+                0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
         quorumsCtxMap.get(quorumIndex).pub_key_Hash = response.getData(); // Store pub key hash
 
@@ -317,29 +333,29 @@ public class CardMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short id,
-            byte[] hash_arr) throws Exception {
+            byte[] hash_arr, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_COMMITMENT, quorumIndex, id, (short) hash_arr.length);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_COMMITMENT,
-                0x00, 0x00, Util.concat(packetData, hash_arr));
+                0x00, hostIndex, Util.concat(packetData, hash_arr));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
     public boolean StorePubKey(short quorumIndex, short id,
-            byte[] pub_arr) throws Exception {
+            byte[] pub_arr, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_PUBKEY, quorumIndex, id, (short) pub_arr.length);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_PUBKEY,
-                0x00, 0x00, Util.concat(packetData, pub_arr));
+                0x00, hostIndex, Util.concat(packetData, pub_arr));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
-    public byte[] RetrievePubKey(short quorumIndex) throws Exception {
+    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, 0x00, packetData);
+                Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
         quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(curve, response.getData(), 0);  // Store Pub
@@ -348,11 +364,11 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean RetrieveAggPubKey(short quorumIndex)
+    public boolean RetrieveAggPubKey(short quorumIndex, byte hostIndex)
             throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, quorumIndex);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, 0x00, packetData);
+                Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
         quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(curve, response.getData(), 0); // Store aggregated pub
@@ -361,28 +377,28 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public byte[] Encrypt(short quorumIndex, byte[] plaintext)
+    public byte[] Encrypt(short quorumIndex, byte[] plaintext, byte hostIndex)
             throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_ENCRYPT, quorumIndex, (short) plaintext.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, Util.concat(packetData, plaintext));
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, hostIndex, Util.concat(packetData, plaintext));
         ResponseAPDU response = transmit(channel, cmd);
         return response.getData();
     }
 
     @Override
-    public byte[] Decrypt(short quorumIndex, byte[] ciphertext) throws Exception {
+    public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, Util.concat(packetData, ciphertext));
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, hostIndex, Util.concat(packetData, ciphertext));
         ResponseAPDU response = transmit(channel, cmd);
 
         return response.getData();
     }
 
     @Override
-    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext) throws Exception {
+    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte hostIndex) throws Exception {
 
         //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
-        byte[] signature = Sign_plain(quorumIndex, round, plaintext, Rn);
+        byte[] signature = Sign_plain(quorumIndex, round, plaintext, Rn, hostIndex);
 
         //Parse s from Card
         Bignat card_s_Bn = new Bignat((short) 32, false);
@@ -399,12 +415,20 @@ public class CardMPCPlayer implements MPCPlayer {
         return card_s_bi;
     }
 
-    public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn) throws Exception {
+    public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn, byte hostIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, Util.concat(packetData, Util.concat(plaintext, Rn)));
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, hostIndex, Util.concat(packetData, Util.concat(plaintext, Rn)));
         ResponseAPDU response = transmit(channel, cmd);
 
         return response.getData();
+    }
+
+    private byte[] PRF(Bignat i, byte[] seed) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.reset();
+        md.update(i.as_byte_array());
+        md.update(seed);
+        return md.digest();
     }
 
     private boolean checkSW(ResponseAPDU response) {

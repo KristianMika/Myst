@@ -100,12 +100,12 @@ public class MPCApplet extends Applet {
                     // Generates initial secrets, set user authorization info and export card's public key 
                     Personalize_Init(apdu);
                     break;
-/*                    
+
                 case Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY:
                     // Set public key later used to authorize requests
                     Personalize_SetUserAuthPubKey(apdu);
                     break;
-*/                    
+
                 case Consts.INS_PERSONALIZE_GETCARDINFO:
                     Personalize_GetCardInfo(apdu);
                     break;
@@ -307,8 +307,20 @@ public class MPCApplet extends Applet {
     }
     
     void Personalize_SetUserAuthPubKey(APDU apdu) {
-        byte[] buffer = apdu.getBuffer();
+        byte[] apdubuf = apdu.getBuffer();
         short len = apdu.getIncomingLength();
+
+        byte hostIndex = apdubuf[Consts.APDU_HOST_INDEX];
+
+        short paramsOffset = GetOperationParamsOffset(Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY, apdu);
+
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_INS_PERSONALIZE_SET_USER_AUTH_PUBKEY);
+        short acl = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE));
+        quorumCtx.SetUserAuthPubkey(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SET_USER_AUTH_PUBKEY), acl, hostIndex);
 
         // TODO: check state
         // TODO: set long-term authorization key for subsequent operations
@@ -409,7 +421,10 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYGEN_INIT, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+
         // Verify authorization
+        // quorumCtx.VerifyPacketSignature(apdu, paramsOffset);
+
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
         // Generate new triplet
         quorumCtx.InitAndGenerateKeyPair(true);        
