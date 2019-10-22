@@ -1,10 +1,13 @@
 package mpctestclient;
 
 import ds.ov2.bignat.Bignat;
+
 import java.math.BigInteger;
-import java.security.MessageDigest;
+
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
+import java.security.PrivateKey;
+import java.security.Signature;
+
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -12,9 +15,12 @@ import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
+
 import mpc.Consts;
+
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
+
 
 /**
  *
@@ -22,6 +28,7 @@ import org.bouncycastle.math.ec.ECPoint;
  */
 public class CardMPCPlayer implements MPCPlayer {
 
+    //TODO: ADD REMOVE QUORUM
     static class QuorumContext {
 
         short playerIndex;
@@ -86,8 +93,8 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public byte[] Gen_Rin(short quorumIndex, short i, byte hostIndex) throws NoSuchAlgorithmException, Exception {
-        byte[] rin = RetrieveRI(channel, quorumIndex, i, hostIndex);
+    public byte[] Gen_Rin(short quorumIndex, short i, byte hostIndex, PrivateKey hostPrivKey) throws NoSuchAlgorithmException, Exception {
+        byte[] rin = RetrieveRI(channel, quorumIndex, i, hostIndex, hostPrivKey);
         System.out.format(logFormat, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", Util.bytesToHex(rin));
         return rin;
     }
@@ -197,20 +204,18 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean SetHostAuthPubkey(ECPoint pubkey, short hostPermissions, short quorumIndex, byte hostIndex) throws Exception {
+    public boolean SetHostAuthPubkey(ECPoint pubkey, short hostPermissions, short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] pubkeyByte = pubkey.getEncoded(false);
         byte[] packetData = preparePacketData(Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY, quorumIndex, hostPermissions);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY,
-                0x00, hostIndex, Util.concat(packetData, pubkeyByte));
+        // Signature is not currently verified!!!
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY, hostPrivKey, (byte) 0x00, hostIndex, Util.concat(packetData, pubkeyByte));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
-
     }
 
-    private byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i, byte hostIndex) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, (short) i);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_RETRIEVE_RI,
-                0x00, hostIndex, packetData);
+    private byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, i);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN_RETRIEVE_RI, hostPrivKey, (byte) 0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
         ///We do nothing with the key, as we just use the Aggregated R in the test cases
@@ -291,114 +296,99 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex, byte hostIndex) throws Exception {
+    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         quorumsCtxMap.put(quorumIndex, new QuorumContext(quorumIndex, thisPlayerIndex, numPlayers));
-
         byte[] packetData = preparePacketData(Consts.INS_QUORUM_SETUP_NEW, quorumIndex, numPlayers, thisPlayerIndex);
-
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_SETUP_NEW, 0,
-                hostIndex, packetData);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_QUORUM_SETUP_NEW, hostPrivKey, (byte) 0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-
         return checkSW(response);
     }
 
     @Override
-    public boolean Reset(short quorumIndex, byte hostIndex) throws Exception {
+    public boolean Reset(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_QUORUM_RESET, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_RESET, 0x00, hostIndex, packetData);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_QUORUM_RESET, hostPrivKey, (byte) 0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
-    public boolean GenKeyPair(short quorumIndex, byte hostIndex, BigInteger hostPrivKey) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_INIT, quorumIndex, (short) hostIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_INIT, 0x00,
-                hostIndex, packetData);
+    public boolean GenKeyPair(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_INIT, quorumIndex, hostIndex);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_INIT, hostPrivKey, (byte) 0x00, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
-    public boolean RetrievePubKeyHash(short quorumIndex, byte hostIndex) throws Exception {
+    public boolean RetrievePubKeyHash(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_COMMITMENT,
-                0x00, hostIndex, packetData);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
         quorumsCtxMap.get(quorumIndex).pub_key_Hash = response.getData(); // Store pub key hash
-
         return checkSW(response);
     }
 
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short id,
-            byte[] hash_arr, byte hostIndex) throws Exception {
+            byte[] hash_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_COMMITMENT, quorumIndex, id, (short) hash_arr.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_COMMITMENT,
-                0x00, hostIndex, Util.concat(packetData, hash_arr));
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_STORE_COMMITMENT, hostPrivKey, (byte) 0x0, hostIndex, Util.concat(packetData, hash_arr));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
     public boolean StorePubKey(short quorumIndex, short id,
-            byte[] pub_arr, byte hostIndex) throws Exception {
+            byte[] pub_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_PUBKEY, quorumIndex, id, (short) pub_arr.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_PUBKEY,
-                0x00, hostIndex, Util.concat(packetData, pub_arr));
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_STORE_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, Util.concat(packetData, pub_arr));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
 
     @Override
-    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex) throws Exception {
+    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, hostIndex, packetData);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-
         quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(curve, response.getData(), 0);  // Store Pub
-
         return response.getData();
     }
 
     @Override
-    public boolean RetrieveAggPubKey(short quorumIndex, byte hostIndex)
+    public boolean RetrieveAggPubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey)
             throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, hostIndex, packetData);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-
         quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(curve, response.getData(), 0); // Store aggregated pub
-
         return checkSW(response);
     }
 
     @Override
-    public byte[] Encrypt(short quorumIndex, byte[] plaintext, byte hostIndex)
+    public byte[] Encrypt(short quorumIndex, byte[] plaintext, byte hostIndex, PrivateKey hostPrivKey)
             throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_ENCRYPT, quorumIndex, (short) plaintext.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, hostIndex, Util.concat(packetData, plaintext));
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_ENCRYPT, hostPrivKey, (byte) 0x0, hostIndex, Util.concat(packetData, plaintext));
         ResponseAPDU response = transmit(channel, cmd);
         return response.getData();
     }
 
     @Override
-    public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte hostIndex) throws Exception {
+    public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, hostIndex, Util.concat(packetData, ciphertext));
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_DECRYPT, hostPrivKey, (byte) 0x0, hostIndex, Util.concat(packetData, ciphertext));
         ResponseAPDU response = transmit(channel, cmd);
 
         return response.getData();
     }
 
     @Override
-    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte hostIndex) throws Exception {
+    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
 
         //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
-        byte[] signature = Sign_plain(quorumIndex, round, plaintext, Rn, hostIndex);
+        byte[] signature = Sign_plain(quorumIndex, round, plaintext, Rn, hostIndex, hostPrivKey);
 
         //Parse s from Card
         Bignat card_s_Bn = new Bignat((short) 32, false);
@@ -415,21 +405,13 @@ public class CardMPCPlayer implements MPCPlayer {
         return card_s_bi;
     }
 
-    public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn, byte hostIndex) throws Exception {
+    public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, hostIndex, Util.concat(packetData, Util.concat(plaintext, Rn)));
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN, hostPrivKey, (byte) round, hostIndex, Util.concat(packetData, Util.concat(plaintext, Rn)));
         ResponseAPDU response = transmit(channel, cmd);
-
         return response.getData();
     }
 
-    private byte[] PRF(Bignat i, byte[] seed) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        md.reset();
-        md.update(i.as_byte_array());
-        md.update(seed);
-        return md.digest();
-    }
 
     private boolean checkSW(ResponseAPDU response) {
         if (response.getSW() != (Consts.SW_SUCCESS & 0xffff)) {
@@ -441,6 +423,41 @@ public class CardMPCPlayer implements MPCPlayer {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Method for building and signing packets.
+     *
+     * @param function (byte) protocol function
+     * @param hostPrivKey (PrivateKey) host's private key object
+     * @param p1 (byte) the first parameter
+     * @param p2 (byte) the second parameter
+     * @param data (byte[]) packet payload
+     * @return CommandAPDU packet with signature
+     * @throws Exception when signing fails
+     */
+    private CommandAPDU GenAndSignPacket(byte function, PrivateKey hostPrivKey, byte p1, byte p2, byte[] data) throws Exception {
+        // Signature can be currently generated only if a packet is smaller than 256 bytes. For longer packets split signature and data into separate APDUs.
+        if ((5 + data.length + 72) > 256) { // 72 is upper bound for signature length
+            throw new IllegalArgumentException("Packet data length is too long.");
+        }
+        // Recreate the packet
+        byte[] packetCopy = new byte[5 + data.length];
+        packetCopy[0] = Consts.CLA_MPC;
+        packetCopy[1] = function;
+        packetCopy[2] = p1;
+        packetCopy[3] = p2;
+        packetCopy[4] = (byte) (data.length); // packet has to be shorter then 256 bytes
+        System.arraycopy(data, 0, packetCopy, 5, data.length);
+
+        // Sign the packet copy
+        Signature ecdsaSign = Signature.getInstance("SHA256withECDSA");
+        ecdsaSign.initSign(hostPrivKey);
+        ecdsaSign.update(packetCopy);
+        byte[] signature = ecdsaSign.sign();
+
+        byte[] packetDataWSignature = Util.concat(data, Util.concat(Util.shortToByteArray(signature.length), signature));
+        return new CommandAPDU(Consts.CLA_MPC, function, p1, p2, packetDataWSignature);
     }
 
     private boolean TestNativeECAdd(CardChannel channel, ECPoint point1, ECPoint point2) throws Exception {

@@ -2,7 +2,8 @@ package mpc;
 
 
 import javacard.framework.ISOException;
-import javacard.framework.Util;
+import javacard.security.ECPublicKey;
+import javacard.security.KeyBuilder;
 
 
 /**
@@ -21,22 +22,23 @@ public class HostACL {
     public final static short ACL_DECRYPT                        = (short) 0x0008; // 0000 0000  0000 1000
     public final static short ACL_SIGN                           = (short) 0x0010; // 0000 0000  0001 0000
 
-    private byte[] pubkey = new byte[Consts.PUBKEY_YS_SHARE_SIZE];
+    private ECPublicKey pubkeyEC = null;
     private boolean pubkeyIsValid = false;
     private short permissions = 0;
 
-    public byte[] getPubkey() {
+    public ECPublicKey getPubkeyEC() {
         if (!isPubkeyIsValid()) {
             ISOException.throwIt(Consts.SW_HOST_NOT_INITIALISED);
         }
-        return pubkey;
+        return pubkeyEC;
     }
 
-    public void setPubkey(byte[] pubkey, short pubkeyOffset) {
+    public void setPubkeyEC(byte[] pubkey, short pubkeyOffset) {
         if (isPubkeyIsValid()) {
             ISOException.throwIt(Consts.SW_HOST_ALREADY_INITIALISED);
         }
-        Util.arrayCopyNonAtomic(pubkey, pubkeyOffset, pubkey, (short) 0, Consts.PUBKEY_YS_SHARE_SIZE);
+        pubkeyEC= (ECPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, false);
+        pubkeyEC.setW(pubkey, pubkeyOffset, Consts.PUBKEY_YS_SHARE_SIZE);
     }
 
     public boolean isPubkeyIsValid() {
@@ -57,7 +59,7 @@ public class HostACL {
 
     public void SetUserAuthPubkey(byte[] userPubkey, short pubkeyOffset, short acl){
         setPermission(acl);
-        setPubkey(userPubkey, pubkeyOffset);
+        setPubkeyEC(userPubkey, pubkeyOffset);
         setPubkeyValid();
     }
 

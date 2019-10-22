@@ -1,11 +1,12 @@
 package mpc;
 
-import javacard.security.MessageDigest;
+import javacard.security.*;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
-import javacard.security.RandomData;
 import mpc.jcmathlib.*;
+
+
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -13,11 +14,11 @@ import mpc.jcmathlib.*;
 public class MPCCryptoOps {
     RandomData randomData = null;
     MessageDigest md = null;
-    
-    Bignat temp_sign_counter = null; 
 
-    ECPointBase placeholder = null; 
-    ECPointBase c2_EC = null;   
+    Bignat temp_sign_counter = null;
+
+    ECPointBase placeholder = null;
+    ECPointBase c2_EC = null;
     ECPointBase GenPoint = null;
     ECPointBase plaintext_EC = null;
     ECPointBase tmp_EC = null;
@@ -33,16 +34,16 @@ public class MPCCryptoOps {
     Bignat xe_Bn = null;
     Bignat xi_Bn = null;
     Bignat aBn = null;
-    
+
     Bignat resBn1 = null;
     Bignat resBn2 = null;
     Bignat resBn3 = null;
-    
+
     // AddPoint operations
     Bignat four_Bn = null;
     Bignat five_Bn = null;
     Bignat p_Bn = null;
-    
+
     byte[] m_shortByteArray = null; // used to return short represenated as array of 2 bytes
     byte[] tmp_arr = null; // TODO: used as  array for temporary result -> move to resource manager
 
@@ -147,7 +148,7 @@ public class MPCCryptoOps {
         four_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         five_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         p_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        
+
         md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
         
         m_shortByteArray = JCSystem.makeTransientByteArray((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT);
@@ -405,5 +406,23 @@ public class MPCCryptoOps {
      */
     public short Gen_R_i(byte[] counter, byte[] cardSecretArray, byte[] outputArray) {
         return placeholder.ScalarMultiplication(GenPoint, PRF(counter, cardSecretArray), outputArray); // yG 
+    }
+
+    /**
+     * Verifies ECDSA signature. Used for host's signature verification
+     *
+     * @param apdubuf (byte[]) apdu buffer
+     * @param signatureOffset (short) offset pointing to the beginning of the packet signature -
+     * @param signatureLength (short) length of the signature from packet parameter
+     * @param hostPubKey (ECPublicKey) host's public key
+     */
+    void VerifyECDSASignature(byte[] apdubuf, short signatureOffset,  short signatureLength, ECPublicKey hostPubKey) {
+        Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        ECDSAObject.init(hostPubKey, Signature.MODE_VERIFY);
+        boolean verResult = ECDSAObject.verify(apdubuf, (short) 0, (short) (signatureOffset - 2), apdubuf, signatureOffset, signatureLength);
+
+        if (!verResult) {
+            ISOException.throwIt(Consts.SW_INVALID_PACKET_SIGNATURE);
+        }
     }
 }

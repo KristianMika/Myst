@@ -91,15 +91,17 @@ public class Consts {
     public static final short SW_TOOMANYHOSTS                   = (short) 0x8013;
     public static final short SW_HOSTNOTALLOWED                 = (short) 0x8014;
     public static final short SW_INVALID_HOST_INDEX             = (short) 0x8014;
-    public static final short SW_PACKET_SIGNATURE_NOT_VALID     = (short) 0x8015;
+    public static final short SW_INVALID_PACKET_SIGNATURE       = (short) 0x8015;
     public static final short SW_HOST_NOT_INITIALISED           = (short) 0x8016;
     public static final short SW_HOST_ALREADY_INITIALISED       = (short) 0x8017;
+
     
             
     public static final short SIGN_COUNTER_LENGTH = (short) 2;
     public static final short APDU_HOST_INDEX = (short) 3;
-    public static final short APDU_FIRST_BYTE_PARAMETER = (short) 2;
-
+    public static final short PACKET_SIZE_OFFSET = (short) 4;
+    public static final short PACKET_SHORT_PARAM_LENGTH = (short) 2;
+    public static final short PACKET_BYTE_PARAM_LENGTH = (short) 1;
     
     
     public static final short PACKET_PARAMS_OPCODE_OFFSET = (short) 0;
@@ -133,17 +135,14 @@ public class Consts {
     public static final short PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SET_USER_AUTH_PUBKEY = (short) (PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE + 2);
 
-    // packet's signature offsets
-    public static final short PACKET_PARAMS_KEYGEN_INIT_E = 5 + 2; //temporary (added (short) hostIndex as packet argument
-    public static final short PACKET_PARAMS_KEYGEN_INIT_S = (short) (PACKET_PARAMS_KEYGEN_INIT_E + 32); // TODO: USE CONSTANT INSTEAD
-                    
+
     // Performance-related debugging response codes
     public static final short PERF_DECRYPT                      = (short) 0x7770;
     public static final short PERF_ENCRYPT                      = (short) 0x6660;
     public static final short PERF_SIGN                         = (short) 0x5550;
     
     // Global applet settings
-    public static final short MAX_NUM_PLAYERS                     = (short) 15;   // Maximum number of allowed players
+    public static final short MAX_NUM_PLAYERS                   = (short) 15;   // Maximum number of allowed players
     public static final short MAX_NUM_HOSTS                     = (short) 5; // Maximum number of allowed hosts
     
     public final static boolean COMPUTE_Y_ONTHEFLY = true; // on-the-fly computation of aggregated pulic key is only option
@@ -171,9 +170,6 @@ public class Consts {
     public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry  
     public static final short PUBKEY_YS_SHARE_SIZE = SHARE_DOUBLE_SIZE_CARRY;    // double intermediate result + 1 byte carry  
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
-    public static final short SHA_256_SIZE = (short) 256 / 8;
-    public static final short SIGN_E_SIZE = SHA_256_SIZE;
-    public static final short SIGN_S_SIZE = SHA_256_SIZE;
     
     public static final short MAX_QUORUMS = 1; // Maximum number of separate quorums this card can participate in
     

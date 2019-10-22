@@ -420,4 +420,17 @@ public class QuorumContext {
             hostsACLs[hostIndex].VerifyCallerAuthorization(requestedFnc);
         }
     }
+
+    void VerifyPacketSignature(byte[] apdubuf, byte hostIndex, short signatureLength, short signatureOffset) {
+        // check for host's index
+        if (hostIndex >= Consts.MAX_NUM_HOSTS) {
+            ISOException.throwIt(Consts.SW_INVALID_HOST_INDEX);
+        }
+
+        if (acl_provided) {
+            ECPublicKey pubkey = hostsACLs[hostIndex].getPubkeyEC();
+            cryptoOps.VerifyECDSASignature(apdubuf, signatureOffset, signatureLength, pubkey);
+        }
+
+    }
 }

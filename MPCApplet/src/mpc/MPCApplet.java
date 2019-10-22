@@ -248,6 +248,8 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_QUORUM_SETUP_NEW, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 4 * Consts.PACKET_SHORT_PARAM_LENGTH));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_SetupNew);
         // Extract function parameters
@@ -273,10 +275,12 @@ public class MPCApplet extends Applet {
 
     void Quorum_Reset(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        
+
         short paramsOffset = GetOperationParamsOffset(Consts.INS_QUORUM_RESET, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_SIZE_OFFSET + Consts.PACKET_SHORT_PARAM_LENGTH));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Reset);
         // Reset target quorum context    
@@ -285,7 +289,6 @@ public class MPCApplet extends Applet {
     
     /**
      * Reset all quorum from QuorumContext[]
-     * @param apdu 
      */
     void Quorum_ResetAll() {
         for (short i = 0; i < (short) m_quorums.length; i++) {
@@ -310,19 +313,19 @@ public class MPCApplet extends Applet {
         byte[] apdubuf = apdu.getBuffer();
         short len = apdu.getIncomingLength();
 
-        byte hostIndex = apdubuf[Consts.APDU_HOST_INDEX];
-
         short paramsOffset = GetOperationParamsOffset(Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY, apdu);
-
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
 
+        //TODO: PACKET SIGNATURE VERIFICATION: WHO WILL SET USERS' PUBKEYS?
+
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_INS_PERSONALIZE_SET_USER_AUTH_PUBKEY);
+        // get host's acl
         short acl = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE));
+        byte hostIndex = apdubuf[Consts.APDU_HOST_INDEX];
         quorumCtx.SetUserAuthPubkey(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SET_USER_AUTH_PUBKEY), acl, hostIndex);
 
-        // TODO: check state
         // TODO: set long-term authorization key for subsequent operations
         // TODO: change state
         // TODO: export card public info
@@ -422,12 +425,12 @@ public class MPCApplet extends Applet {
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
 
-        // Verify authorization
-        // quorumCtx.VerifyPacketSignature(apdu, paramsOffset);
+        // Packet signature verification
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 3 * Consts.PACKET_SHORT_PARAM_LENGTH));
 
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
         // Generate new triplet
-        quorumCtx.InitAndGenerateKeyPair(true);        
+        quorumCtx.InitAndGenerateKeyPair(true);
     }
     
     /**
@@ -440,6 +443,8 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 2 * Consts.PACKET_SHORT_PARAM_LENGTH));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_RetrieveCommitment);
         // Obtain commitment for this card
@@ -463,12 +468,13 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYGEN_STORE_COMMITMENT, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
-        // Verify authorization
-        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_StoreCommitment);
-        
-        // Store provided commitment
         short playerId = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_PLAYERID_OFFSET));
         short commitmentLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENTLENGTH_OFFSET));
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 4 * Consts.PACKET_SHORT_PARAM_LENGTH + commitmentLen));
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_StoreCommitment);
+        // Store provided commitment
         quorumCtx.StoreCommitment(playerId, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENT_OFFSET), commitmentLen);
     }
     
@@ -485,6 +491,8 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        // Verify signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 2 * Consts.PACKET_SHORT_PARAM_LENGTH));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetYi);
         // Retrieve public key
@@ -507,11 +515,14 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYGEN_STORE_PUBKEY, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
-        // Verify authorization
-        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_SetYs);
-        // Store provided public key 
         short playerId = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTOREPUBKEY_PLAYERID_OFFSET));
         short pubKeyLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEYLENGTH_OFFSET));
+
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 4 * Consts.PACKET_SHORT_PARAM_LENGTH + pubKeyLen));
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_SetYs);
+        // Store provided public key
         quorumCtx.SetYs(playerId, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEY_OFFSET), pubKeyLen);
     }    
     
@@ -529,6 +540,8 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        // Verify signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 2 * Consts.PACKET_SHORT_PARAM_LENGTH));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetY);
         // Retrieve aggregated pubic key
@@ -580,6 +593,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         // TODO: Combine all shares to restore secret key y
         // TODO: Switch into next state
+        // TODO: VERIFY PACKET SIGNATURE
         //apdu.setOutgoingAndSend((short) 0, len);
     }
     
@@ -594,6 +608,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         // TODO: Combine all shares to restore secret key y
         // TODO: Switch into next state
+        // TODO: VERIFY PACKET SIGNATURE
         //apdu.setOutgoingAndSend((short) 0, len);
     }    
 
@@ -610,9 +625,11 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_ENCRYPT, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET));
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 3 * Consts.PACKET_SHORT_PARAM_LENGTH + dataLen));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Encrypt);
-        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET));
         dataLen = quorumCtx.Encrypt(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_DATA_OFFSET), dataLen, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
@@ -626,10 +643,12 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_DECRYPT, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET));
+        //Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 3 * Consts.PACKET_SHORT_PARAM_LENGTH + dataLen));
         // Verify authorization - is caller allowed to ask for decryption? 
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_DecryptShare);
 
-        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET));
         dataLen = quorumCtx.DecryptShare(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_DATA_OFFSET), dataLen, apdubuf);
         // TODO: encrypt result under host public key and sign by card's key
         apdu.setOutgoingAndSend((short) 0, dataLen);
@@ -645,6 +664,9 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_SIGN_RETRIEVE_RI, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 3 * Consts.PACKET_SHORT_PARAM_LENGTH));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
         
@@ -664,11 +686,14 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_SIGN, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_DATALENGTH_OFFSET));
+
+        //Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 4 * Consts.PACKET_SHORT_PARAM_LENGTH + dataLen));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign);
 
         m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_COUNTER_OFFSET));
-        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_DATALENGTH_OFFSET));
         dataLen = quorumCtx.Sign(m_cryptoOps.temp_sign_counter, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_DATA_OFFSET), dataLen, apdubuf, (short) 0);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }
@@ -682,10 +707,12 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_SIGN_GET_CURRENT_COUNTER, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
         // Send signature share 
         short dataLen = quorumCtx.Sign_GetCurrentCounter(apdubuf, (short) 0);
+
         apdu.setOutgoingAndSend((short) 0, dataLen); 
     }    
     
@@ -716,5 +743,23 @@ public class MPCApplet extends Applet {
         // TODO: Sign output share
 
         //apdu.setOutgoingAndSend((short) 0, len);
-    }    
+    }
+
+    /**
+     * Verifies packet signature signed by a host.
+     *
+     * @param apdubuf (byte[]) apdu buffer
+     * @param quorumCtx (QuorumContext) Quorum context
+     * @param signatureOffset (short) offset pointing to short argument signature length
+     */
+    void verifySignature(byte[]apdubuf, QuorumContext quorumCtx, short signatureOffset) {
+        //get host's index
+        byte hostIndex = apdubuf[Consts.APDU_HOST_INDEX];
+        // get signature length short value
+        short signatureLength = Util.getShort(apdubuf, signatureOffset);
+        //correct the packet size for signature verification
+        apdubuf[Consts.PACKET_SIZE_OFFSET] -= (byte) (signatureLength + 2); //sizeof short
+        signatureOffset += 2;
+        quorumCtx.VerifyPacketSignature(apdubuf, hostIndex, signatureLength, signatureOffset);
+    }
 }

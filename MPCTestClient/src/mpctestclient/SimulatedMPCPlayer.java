@@ -1,6 +1,7 @@
 package mpctestclient;
 
 import java.math.BigInteger;
+import java.security.PrivateKey;
 
 import org.bouncycastle.math.ec.ECPoint;
 
@@ -36,12 +37,12 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean SetHostAuthPubkey(ECPoint pubkey, short aclByte, short quorumIndex, byte hostIndex){
+    public boolean SetHostAuthPubkey(ECPoint pubkey, short aclByte, short quorumIndex, byte hostIndex, PrivateKey hostPrivKey){
         return true;
     }
 
     @Override
-    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex, byte hostIndex) throws Exception {
+    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         if (quorumIndex < 0 || quorumIndex >= MAX_QUORUMS) {
             throw new SimulatedPlayerException("Invalid quorum index.");
         }
@@ -52,7 +53,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     // MPCPlayer methods
     //
     @Override
-    public byte[] Gen_Rin(short quorumIndex, short i, byte hostIndex) throws Exception {
+    public byte[] Gen_Rin(short quorumIndex, short i, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].Gen_Rin(i);
     }
 
@@ -82,54 +83,54 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean Reset(short quorumIndex, byte hostIndex) throws Exception {
+    public boolean Reset(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         quorums[quorumIndex].Reset();
         return true;
     }
 
     @Override
-    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte hostIndex) throws Exception {
+    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].Sign(round, Rn, plaintext);
     }
 
     @Override
-    public boolean GenKeyPair(short quorumIndex, byte hostIndex, BigInteger hostPrivKey) throws Exception {
+    public boolean GenKeyPair(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         quorums[quorumIndex].GenKeyPair();
         return true;
     }
 
     @Override
-    public boolean RetrievePubKeyHash(short quorumIndex, byte hostIndex) throws Exception {
+    public boolean RetrievePubKeyHash(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].RetrievePubKeyHash();
     }
 
     @Override
-    public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr, byte hostIndex) throws Exception {
+    public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].StorePubKeyHash(playerIndex, hash_arr);
     }
 
     @Override
-    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex) throws Exception {
+    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].RetrievePubKey();
     }
 
     @Override
-    public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr, byte hostIndex) throws Exception {
+    public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].StorePubKey(playerIndex, pub_arr);
     }
 
     @Override
-    public boolean RetrieveAggPubKey(short quorumIndex, byte hostIndex) throws Exception {
+    public boolean RetrieveAggPubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].RetrieveAggPubKey();
     }
     
     @Override
-    public byte[] Encrypt(short quorumIndex, byte[] plaintext, byte hostIndex) throws Exception {
+    public byte[] Encrypt(short quorumIndex, byte[] plaintext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].Encrypt(plaintext);
     }
 
     @Override
-    public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte hostIndex) throws Exception {
+    public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].Decrypt(ciphertext);
     }
 
