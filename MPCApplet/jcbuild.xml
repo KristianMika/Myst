@@ -12,7 +12,7 @@
   <taskdef name="javacard" classname="pro.javacard.ant.JavaCard" classpath="ext/ant-javacard.jar"/>
 
   <target name="build" description="Builds the CAP file with MPC applet">
-    <javacard jckit="${JC222}">
+    <javacard jckit="${JC303}">
       <cap output="!uploader/MPCApplet.cap" sources="src/mpc/" aid="4d50434170706c6574" >
         <applet class="mpc.MPCApplet" aid="4d50434170706c657431"/>
       </cap>
