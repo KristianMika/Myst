@@ -264,6 +264,8 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_QUORUM_REMOVE, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        // Verify packet signature
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_SIZE_OFFSET + Consts.PACKET_SHORT_PARAM_LENGTH));
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GenerateRandomData);
         
