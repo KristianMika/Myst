@@ -416,13 +416,30 @@ public class MPCCryptoOps {
      * @param signatureLength (short) length of the signature from packet parameter
      * @param hostPubKey (ECPublicKey) host's public key
      */
-    void VerifyECDSASignature(byte[] apdubuf, short signatureOffset,  short signatureLength, ECPublicKey hostPubKey) {
+    void VerifyECDSASignature(byte[] apdubuf, short signatureOffset,  short signatureLength, short dataOffset, short dataLength, ECPublicKey hostPubKey) {
         Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
         ECDSAObject.init(hostPubKey, Signature.MODE_VERIFY);
-        boolean verResult = ECDSAObject.verify(apdubuf, (short) 0, (short) (signatureOffset - 2), apdubuf, signatureOffset, signatureLength);
+        boolean verResult = ECDSAObject.verify(apdubuf, dataOffset, dataLength, apdubuf, signatureOffset, signatureLength);
 
         if (!verResult) {
             ISOException.throwIt(Consts.SW_INVALID_PACKET_SIGNATURE);
         }
+    }
+
+    /**
+     * Computes ECDSA signature
+     *
+     * @param plaintext plaintext byte array
+     * @param plaintextOffset offset of the plaintext
+     * @param plaintextLength length of the plaintext
+     * @param dst signature buffer
+     * @param dstOffset offset in the signature buffer
+     * @param privKey card's private key as PrivateKey object
+     * @return short signature length
+     */
+    short computeECDSASignature(byte[] plaintext, short plaintextOffset, short plaintextLength, byte[] dst, short dstOffset, ECPrivateKey privKey) {
+        Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        ECDSAObject.init(privKey, Signature.MODE_SIGN);
+        return ECDSAObject.sign(plaintext, plaintextOffset, plaintextLength, dst, dstOffset);
     }
 }

@@ -421,7 +421,7 @@ public class QuorumContext {
         }
     }
 
-    void VerifyPacketSignature(byte[] apdubuf, byte hostIndex, short signatureLength, short signatureOffset) {
+    void VerifyPacketSignature(byte[] apdubuf, byte hostIndex, short signatureOffset, short signatureLength, short dataOffset, short dataLength) {
         // check for host's index
         if (hostIndex >= Consts.MAX_NUM_HOSTS) {
             ISOException.throwIt(Consts.SW_INVALID_HOST_INDEX);
@@ -429,8 +429,11 @@ public class QuorumContext {
 
         if (acl_provided) {
             ECPublicKey pubkey = hostsACLs[hostIndex].getPubkeyEC();
-            cryptoOps.VerifyECDSASignature(apdubuf, signatureOffset, signatureLength, pubkey);
+            cryptoOps.VerifyECDSASignature(apdubuf, signatureOffset, signatureLength, dataOffset, dataLength, pubkey);
         }
+    }
 
+    short signApdubuffer(byte[] apdubuf, short offset, short payloadLength) {
+        return cryptoOps.computeECDSASignature(apdubuf, offset, payloadLength, apdubuf, (short) ( 2 * 2 + payloadLength), (ECPrivateKey) pair.getPrivate());
     }
 }

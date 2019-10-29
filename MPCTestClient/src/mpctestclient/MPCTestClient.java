@@ -59,7 +59,7 @@ public class MPCTestClient {
     static byte[] MPC_APPLET_AID = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x0a, (byte) 0x4d, (byte) 0x50, (byte) 0x43, (byte) 0x41, (byte) 0x70, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x74, (byte) 0x31};
 
     // Host's keys
-    private static BigInteger hostPrivateKey; // has to be changed to private!!!
+    private static BigInteger hostPrivateKey;
     private static ECPoint hostPublicKey;
     private static PrivateKey hostPrivateKeyObject;
 
@@ -88,7 +88,7 @@ public class MPCTestClient {
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 4;
             //runCfg.numWholeTestRepeats = 10; //more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
-            runCfg.numPlayers = 2;
+            runCfg.numPlayers = 1;
             runCfg.cardName = "gd60";
 
             
@@ -166,7 +166,12 @@ public class MPCTestClient {
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
                 System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, THIS_HOST_ID, hostPrivateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-                
+
+                // Remove
+                operationName = "Removing quorum (INS_QUORUM_RESET)";
+                System.out.format(format, operationName, player.Remove(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
                 // Reset
                 operationName = "Reseting the card to an uninitialized state (INS_RESET)";
                 System.out.format(format, operationName, player.Reset(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
@@ -312,6 +317,11 @@ public class MPCTestClient {
                 // Setup
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
                 System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, THIS_HOST_ID, hostPrivateKeyObject));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                // Remove
+                operationName = "Removing quorum (INS_QUORUM_RESET)";
+                System.out.format(format, operationName, player.Remove(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
                 // Reset

@@ -452,7 +452,7 @@ public class MPCApplet extends Applet {
         // Obtain commitment for this card
         short len = quorumCtx.RetrieveCommitment(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
-        
+
         apdu.setOutgoingAndSend((short) 0, len);
     }    
     
@@ -547,10 +547,18 @@ public class MPCApplet extends Applet {
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetY);
         // Retrieve aggregated pubic key
-        short len = quorumCtx.GetY().getW(apdubuf, (short) 0);
-        // TODO: sign output data (if not signed later by host)
-
-        apdu.setOutgoingAndSend((short) 0, len);
+        short bufferLength = 0;
+        short len = quorumCtx.GetY().getW(apdubuf, (short) (2 * Consts.PACKET_SHORT_PARAM_LENGTH));
+        bufferLength += len;
+        // set the payload length parameter
+        Util.setShort(apdubuf, (short) 0, len);
+        // append signature
+        len = quorumCtx.signApdubuffer(apdubuf, (short) (2 * Consts.PACKET_SHORT_PARAM_LENGTH), len);
+        bufferLength += len;
+        // set the signature length parameter
+        Util.setShort(apdubuf, Consts.PACKET_SHORT_PARAM_LENGTH, len);
+        bufferLength += 2 + 2;
+        apdu.setOutgoingAndSend((short) 0, bufferLength);
     }    
     
     /**
@@ -754,14 +762,14 @@ public class MPCApplet extends Applet {
      * @param quorumCtx (QuorumContext) Quorum context
      * @param signatureOffset (short) offset pointing to short argument signature length
      */
-    void verifySignature(byte[]apdubuf, QuorumContext quorumCtx, short signatureOffset) {
+    void verifySignature(byte[] apdubuf, QuorumContext quorumCtx, short signatureOffset) {
         //get host's index
         byte hostIndex = apdubuf[Consts.APDU_HOST_INDEX];
         // get signature length short value
         short signatureLength = Util.getShort(apdubuf, signatureOffset);
         //correct the packet size for signature verification
-        apdubuf[Consts.PACKET_SIZE_OFFSET] -= (byte) (signatureLength + 2); //sizeof short
+        apdubuf[Consts.PACKET_SIZE_OFFSET] -= (byte) (signatureLength + Consts.PACKET_SHORT_PARAM_LENGTH);
         signatureOffset += 2;
-        quorumCtx.VerifyPacketSignature(apdubuf, hostIndex, signatureLength, signatureOffset);
+        quorumCtx.VerifyPacketSignature(apdubuf, hostIndex, signatureOffset, signatureLength, (short) 0, (short) (signatureOffset - Consts.PACKET_SHORT_PARAM_LENGTH));
     }
 }

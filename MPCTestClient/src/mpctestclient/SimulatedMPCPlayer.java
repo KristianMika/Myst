@@ -89,6 +89,15 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     @Override
+    public boolean Remove (short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws SimulatedPlayerException, StateModel.stateException {
+        if (quorumIndex < 0 || quorumIndex >= MAX_QUORUMS) {
+            throw new SimulatedPlayerException("Invalid quorum index.");
+        }
+        quorums[quorumIndex].Reset();
+        return true;
+    }
+
+    @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].Sign(round, Rn, plaintext);
     }

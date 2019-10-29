@@ -4,10 +4,10 @@ import ds.ov2.bignat.Bignat;
 
 import java.math.BigInteger;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.Signature;
+import java.security.*;
 
+import java.security.spec.ECGenParameterSpec;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,8 +16,10 @@ import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 
+import javacard.security.ECPublicKey;
 import mpc.Consts;
 
+import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
@@ -27,8 +29,7 @@ import org.bouncycastle.math.ec.ECPoint;
  * @author Petr Svenda
  */
 public class CardMPCPlayer implements MPCPlayer {
-
-    //TODO: ADD REMOVE QUORUM
+    
     static class QuorumContext {
 
         short playerIndex;
@@ -37,8 +38,10 @@ public class CardMPCPlayer implements MPCPlayer {
         BigInteger card_e_BI;
         public byte[] pub_key_Hash;
         ECPoint pubKey;
+        PublicKey pubkeyObject;
         ECPoint AggPubKey;
         Bignat requestCounter;
+
 
         QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
             this.quorumIndex = quorumIndex;
@@ -313,6 +316,14 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
+    public boolean Remove(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_QUORUM_REMOVE, quorumIndex);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_QUORUM_REMOVE, hostPrivKey, (byte) 0x00, hostIndex, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+    }
+
+    @Override
     public boolean GenKeyPair(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_INIT, quorumIndex, hostIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_INIT, hostPrivKey, (byte) 0x00, hostIndex, packetData);
@@ -325,7 +336,7 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-        quorumsCtxMap.get(quorumIndex).pub_key_Hash = response.getData(); // Store pub key hash
+        quorumsCtxMap.get(quorumIndex).pub_key_Hash =  response.getData(); // Store pub key hash
         return checkSW(response);
     }
 
@@ -353,6 +364,14 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
         quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(curve, response.getData(), 0);  // Store Pub
+
+        // set PublicKey object
+        BigInteger x = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getXCoord().toBigInteger();
+        BigInteger y = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getYCoord().toBigInteger();
+        ECNamedCurveSpec params = new ECNamedCurveSpec("SecP256r1", MPCGlobals.curve, MPCGlobals.G, MPCGlobals.n);
+        java.security.spec.ECPoint w = new java.security.spec.ECPoint(x, y);
+        KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
+        quorumsCtxMap.get(quorumIndex).pubkeyObject = keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
         return response.getData();
     }
 
@@ -362,7 +381,9 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(curve, response.getData(), 0); // Store aggregated pub
+        byte[] responseData = response.getData();
+        byte[] aggPubKey = parseAndVerifyPacket(responseData, quorumsCtxMap.get(quorumIndex).pubkeyObject);
+        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(curve, aggPubKey, 0); // Store aggregated pub
         return checkSW(response);
     }
 
@@ -432,7 +453,7 @@ public class CardMPCPlayer implements MPCPlayer {
      * @param hostPrivKey (PrivateKey) host's private key object
      * @param p1 (byte) the first parameter
      * @param p2 (byte) the second parameter
-     * @param data (byte[]) packet payload
+     * @param data (byte[]) packet data
      * @return CommandAPDU packet with signature
      * @throws Exception when signing fails
      */
@@ -458,6 +479,43 @@ public class CardMPCPlayer implements MPCPlayer {
 
         byte[] packetDataWSignature = Util.concat(data, Util.concat(Util.shortToByteArray(signature.length), signature));
         return new CommandAPDU(Consts.CLA_MPC, function, p1, p2, packetDataWSignature);
+    }
+
+    /**
+     * Method for ECDSA signature verification
+     *
+     * @param data plaintext
+     * @param signature signature
+     * @param pubkey public key as PublicKey object
+     * @return verification result
+     * @throws GeneralSecurityException in case signature is in incorrect format
+     */
+    private boolean verifyECDSASignature(byte[] data, byte[] signature, PublicKey pubkey) throws GeneralSecurityException {
+        Signature ecdsaVerify = Signature.getInstance("SHA256withECDSA");
+        ecdsaVerify.initVerify(pubkey);
+        ecdsaVerify.update(data);
+        return ecdsaVerify.verify(signature);
+    }
+
+    /**
+     * Parses packet and calls verifyECDSASignature()
+     *
+     * @param apdubuf received APDU buffer
+     * @param pubkey card's pubkey as PublicKey object
+     * @return byte[] data part of the packet
+     * @throws GeneralSecurityException if verifyECDSASignature fails
+     */
+    private byte[] parseAndVerifyPacket(byte[] apdubuf, PublicKey pubkey) throws GeneralSecurityException {
+        short dataLength = Util.getShort(apdubuf, 0);
+        short signatureLength = Util.getShort(apdubuf, 2);
+        byte[] data = new byte[dataLength];
+        System.arraycopy(apdubuf, 2 * 2, data, 0, dataLength);
+        byte[] signature = new byte[signatureLength];
+        System.arraycopy(apdubuf, 2 * 2 + dataLength, signature, 0, signatureLength);
+        if (!verifyECDSASignature(data, signature, pubkey)) {
+            throw new GeneralSecurityException("Bogus packet signature.");
+        }
+        return data;
     }
 
     private boolean TestNativeECAdd(CardChannel channel, ECPoint point1, ECPoint point2) throws Exception {
