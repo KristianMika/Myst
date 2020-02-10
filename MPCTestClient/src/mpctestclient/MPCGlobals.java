@@ -1,33 +1,32 @@
 package mpctestclient;
 
-import java.math.BigInteger;
-import java.util.ArrayList;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
+import java.math.BigInteger;
+import java.util.ArrayList;
+
 /**
- *
  * @author Petr Svenda
  */
 public class MPCGlobals {
 
-    public static ECCurve curve;
-    public static BigInteger p;
-    public static BigInteger a;
-    public static BigInteger b;
-    public static BigInteger n;
-    public static ECPoint G;
-    public static ECParameterSpec ecSpec;
+    public ECCurve curve;
+    public BigInteger p;
+    public BigInteger a;
+    public BigInteger b;
+    public BigInteger n;
+    public ECPoint G;
+    public ECParameterSpec ecSpec;
 
-    public static BigInteger secret = BigInteger.valueOf(0);
-    public static ECPoint AggPubKey;
-    public static ECPoint R_EC;
+    public BigInteger secret = BigInteger.valueOf(0);
+    public ECPoint AggPubKey;
+    public ECPoint R_EC;
 
-    public static ECPoint c1;
-    public static ECPoint c2;
+    public ECPoint c1;
+    public ECPoint c2;
+    public ECPoint[] Rands;
 
-    static ArrayList<MPCPlayer> players = new ArrayList<>();
-
-    public static ECPoint[] Rands;
+    ArrayList<MPCPlayer> players = new ArrayList<>();
 }

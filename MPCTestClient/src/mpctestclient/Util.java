@@ -1,14 +1,7 @@
 package mpctestclient;
 
 import ds.ov2.bignat.Bignat;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.Security;
 import javacard.framework.ISO7816;
-import javax.smartcardio.ResponseAPDU;
 import mpc.Consts;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.interfaces.ECPublicKey;
@@ -17,7 +10,16 @@ import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
+import javax.smartcardio.ResponseAPDU;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.Security;
+
 /**
+ * Class that holds util functions
  *
  * @author Vasilios Mavroudis and Petr Svenda
  */
@@ -121,7 +123,7 @@ public class Util {
         byte[] x_b = new byte[256 / 8];
         byte[] y_b = new byte[256 / 8];
 
-		// System.out.println("Serialized Point: " + toHex(serialized_point));
+        // System.out.println("Serialized Point: " + toHex(serialized_point));
         // src -- This is the source array.
         // srcPos -- This is the starting position in the source array.
         // dest -- This is the destination array.

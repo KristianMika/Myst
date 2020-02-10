@@ -1,15 +1,9 @@
 package mpctestclient;
 
-import java.math.BigInteger;
-import java.security.*;
-import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Random;
-
-import javax.smartcardio.CardChannel;
-
+import mpc.Consts;
 import mpc.HostACL;
+import mpc.PM;
+import mpc.jcmathlib.SecP256r1;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.interfaces.ECPublicKey;
 import org.bouncycastle.jce.spec.ECParameterSpec;
@@ -18,24 +12,16 @@ import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECFieldElement;
 import org.bouncycastle.math.ec.ECPoint;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.HashMap;
+import javax.smartcardio.CardChannel;
+import java.io.*;
+import java.math.BigInteger;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javafx.util.Pair;
-import mpc.Consts;
-import mpc.PM;
-import mpc.jcmathlib.*;
-
 /**
- *
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class MPCTestClient {
@@ -49,37 +35,36 @@ public class MPCTestClient {
     public final static boolean _FIXED_PLAYERS_RNG = false;
 
     public final static short QUORUM_INDEX = 0;
-
+    public static final byte THIS_HOST_ID = 3; // host's ID, must be in <0, Consts.MAX_NUM_HOSTS)
+    //public static byte[] APDU_RESET = {(byte) 0xB0, (byte) 0x03, (byte) 0x00, (byte) 0x00};
+    public static final byte[] PERF_COMMAND_NONE = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
+    public final static boolean MODIFY_SOURCE_FILES_BY_PERF = true;
+    static final String PERF_TRAP_CALL = "PM.check(PM.";
+    static final String PERF_TRAP_CALL_END = ");";
     // Objects
     public static String format = "%-40s:%s%n\n-------------------------------------------------------------------------------\n";
-
+    // acl of this host
+    public static short[] hostPermissions = new short[]{HostACL.ACL_FULL_PRIVILEGES}; // {HostACL.ACL_KEY_GENERATION, HostACL.ACL_QUORUM_MANAGEMENT, HostACL.ACL_ENCRYPT, HostACL.ACL_DECRYPT};
+    public static HashMap<Short, String> PERF_STOP_MAPPING = new HashMap<>();
+    public static byte[] PERF_COMMAND = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
     // Crypto-objects
     static MPCGlobals mpcGlobals = new MPCGlobals();
-
     static byte[] MPC_APPLET_AID = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x0a, (byte) 0x4d, (byte) 0x50, (byte) 0x43, (byte) 0x41, (byte) 0x70, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x74, (byte) 0x31};
-
+    // Performance testing variables
+    static ArrayList<Map.Entry<String, Long>> perfResults = new ArrayList<>();
+    static Long m_lastTransmitTime = 0L;
     // Host's keys
     private static BigInteger hostPrivateKey;
     private static ECPoint hostPublicKey;
     private static PrivateKey hostPrivateKeyObject;
-
-    // acl of this host
-    public static short[] hostPermissions = new short[]  {HostACL.ACL_FULL_PRIVILEGES}; // {HostACL.ACL_KEY_GENERATION, HostACL.ACL_QUORUM_MANAGEMENT, HostACL.ACL_ENCRYPT, HostACL.ACL_DECRYPT};
-    public static final byte THIS_HOST_ID = 3; // host's ID, must be in <0, Consts.MAX_NUM_HOSTS)
-
-    // Performance testing variables
-    static ArrayList<Pair<String, Long>> perfResults = new ArrayList<>();
-    static Long m_lastTransmitTime = new Long(0);
-    public static HashMap<Short, String> PERF_STOP_MAPPING = new HashMap<>();
-    public static byte[] PERF_COMMAND = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
-    //public static byte[] APDU_RESET = {(byte) 0xB0, (byte) 0x03, (byte) 0x00, (byte) 0x00};
-    public static final byte[] PERF_COMMAND_NONE = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
-    static final String PERF_TRAP_CALL = "PM.check(PM.";
-    static final String PERF_TRAP_CALL_END = ");";
-    public final static boolean MODIFY_SOURCE_FILES_BY_PERF = true;
     // end Performance testing variables
 
-    public static void main(String[] args) throws Exception {
+    /**
+     * The main method that runs the demo
+     *
+     * @param args are ignored
+     */
+    public static void main(String[] args) {
         try {
             buildPerfMapping();
 
@@ -91,20 +76,26 @@ public class MPCTestClient {
             runCfg.numPlayers = 1;
             runCfg.cardName = "gd60";
 
-            
+
             MPCProtocol_demo(runCfg);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-     
-    static void writePerfLog(String operationName, Long time, ArrayList<Pair<String, Long>> perfResults, FileOutputStream perfFile) throws IOException {
-        perfResults.add(new Pair(operationName, time));
+
+    static void writePerfLog(String operationName, Long time, ArrayList<Map.Entry<String, Long>> perfResults, FileOutputStream perfFile) throws IOException {
+        perfResults.add(new AbstractMap.SimpleEntry<>(operationName, time));
         perfFile.write(String.format("%s,%d\n", operationName, time).getBytes());
         perfFile.flush();
     }
 
+    /**
+     * Method that runs the demo
+     *
+     * @param runCfg current test configuration
+     * @throws Exception if demo fails
+     */
     static void MPCProtocol_demo(MPCRunConfig runCfg) throws Exception {
         String experimentID = String.format("%d", System.currentTimeMillis());
         runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
@@ -122,10 +113,10 @@ public class MPCTestClient {
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
         ArrayList<CardChannel> cardsList = new ArrayList<>();
-        CardChannel connChannel = Connect(runCfg);
-        
-        if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL){
-             cardsList.add(connChannel);
+        CardChannel connChannel = CardManagement.Connect(runCfg);
+
+        if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL) {
+            cardsList.add(connChannel);
         }
         // Create card contexts, fill cards IDs
         short cardID = runCfg.thisCardID;
@@ -144,7 +135,7 @@ public class MPCTestClient {
 
         // Simulate all remaining participants in protocol in addition to MPC card(s) 
         for (; cardID < runCfg.numPlayers; cardID++) {
-            mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
+            mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals));
         }
 
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
@@ -196,7 +187,7 @@ public class MPCTestClient {
             //
             // Encrypt / Decrypt
             //
-            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile, runCfg);
+            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile);
             /*
              // Repeated measurements if required
              for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
@@ -255,8 +246,8 @@ public class MPCTestClient {
             }
         }
     }
-    
-    public static void TestMPCProtocol_v20170920(MPCRunConfig runCfg, MPCRunConfig.CARD_TYPE cardType) throws FileNotFoundException, Exception {
+
+    public static void TestMPCProtocol_v20170920(MPCRunConfig runCfg, MPCRunConfig.CARD_TYPE cardType) throws Exception {
         String experimentID = String.format("%d", System.currentTimeMillis());
         runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
 
@@ -274,10 +265,10 @@ public class MPCTestClient {
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
         ArrayList<CardChannel> cardsList = new ArrayList<>();
-        CardChannel connChannel = Connect(runCfg);
-        
-        if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL){
-             cardsList.add(connChannel);
+        CardChannel connChannel = CardManagement.Connect(runCfg);
+
+        if (runCfg.testCardType == MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL) {
+            cardsList.add(connChannel);
         }
         // Create card contexts, fill cards IDs
         short cardID = runCfg.thisCardID;
@@ -296,7 +287,7 @@ public class MPCTestClient {
 
         // Simulate all remaining participants in protocol in addition to MPC card(s) 
         for (; cardID < runCfg.numPlayers; cardID++) {
-            mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
+            mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals));
         }
 
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
@@ -348,7 +339,7 @@ public class MPCTestClient {
             //
             // Encrypt / Decrypt
             //
-            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile, runCfg);
+            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile);
             //
             // Sign
             //
@@ -363,7 +354,7 @@ public class MPCTestClient {
 
             // Close cvs perf file
             perfFile.close();
-        }        
+        }
     }
 
     static void prepareECCurve(MPCGlobals mpcParams) {
@@ -377,7 +368,7 @@ public class MPCTestClient {
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
     }
 
-    static void saveLatexPerfLog(ArrayList<Pair<String, Long>> results) {
+    static void saveLatexPerfLog(ArrayList<Map.Entry<String, Long>> results) {
         try {
             // Save performance results also as latex
             String logFileName = String.format("MPC_PERF_log_%d.tex", System.currentTimeMillis());
@@ -388,7 +379,7 @@ public class MPCTestClient {
                     + "\\hline\n"
                     + "\\hline\n";
             perfFile.write(tableHeader.getBytes());
-            for (Pair<String, Long> measurement : results) {
+            for (Map.Entry<String, Long> measurement : results) {
                 String operation = measurement.getKey();
                 operation = operation.replace("_", "\\_");
                 perfFile.write(String.format("%s & %d \\\\ \\hline\n", operation, measurement.getValue()).getBytes());
@@ -401,9 +392,16 @@ public class MPCTestClient {
         }
     }
 
-    static void PerformKeyGen(ArrayList<MPCPlayer> playersList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
+    /**
+     * Performs key generation
+     *
+     * @param playersList list of players that will generate their private keys
+     * @param perfFile
+     * @throws Exception if generation fails
+     */
+    static void PerformKeyGen(ArrayList<MPCPlayer> playersList, FileOutputStream perfFile) throws Exception {
         Long combinedTime = (long) 0;
-        for (MPCPlayer player : mpcGlobals.players) {
+        for (MPCPlayer player : playersList) {
             // Generate KeyPair in card
             String operationName = "Generate KeyPair (INS_KEYGEN_INIT)";
             System.out.format(format, operationName, player.GenKeyPair(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
@@ -419,8 +417,8 @@ public class MPCTestClient {
 
         // Push hash for all our pub keys
         String operationName = "Store pub key hash (INS_KEYGEN_STORE_HASH)";
-        for (MPCPlayer playerTarget : mpcGlobals.players) {
-            for (MPCPlayer playerSource : mpcGlobals.players) {
+        for (MPCPlayer playerTarget : playersList) {
+            for (MPCPlayer playerSource : playersList) {
                 if (playerTarget != playerSource) {
                     System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX), THIS_HOST_ID, hostPrivateKeyObject));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
@@ -430,9 +428,9 @@ public class MPCTestClient {
         }
 
         // Retrieve card's Public Key
-        for (MPCPlayer player : mpcGlobals.players) {
+        for (MPCPlayer player : playersList) {
             operationName = "Retrieve Pub Key (INS_KEYGEN_RETRIEVE_PUBKEY)";
-            ECPoint pub_share_EC = Util.ECPointDeSerialization(mpcGlobals.curve, player.RetrievePubKey(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject), 0);
+            ECPoint pub_share_EC = Util.ECPointDeSerialization(mpcGlobals.curve, player.RetrievePubKey(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject, mpcGlobals), 0);
             System.out.format(format, operationName, Util.bytesToHex(pub_share_EC.getEncoded(false)));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
@@ -440,8 +438,8 @@ public class MPCTestClient {
 
         // Push all public keys
         operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
-        for (MPCPlayer playerTarget : mpcGlobals.players) {
-            for (MPCPlayer playerSource : mpcGlobals.players) {
+        for (MPCPlayer playerTarget : playersList) {
+            for (MPCPlayer playerSource : playersList) {
                 if (playerTarget != playerSource) {
                     System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false), THIS_HOST_ID, hostPrivateKeyObject));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
@@ -452,7 +450,7 @@ public class MPCTestClient {
 
         // Retrieve Aggregated Y
         boolean bFirstPlayer = true;
-        for (MPCPlayer player : mpcGlobals.players) {
+        for (MPCPlayer player : playersList) {
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
             System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
             if (bFirstPlayer) {
@@ -464,15 +462,24 @@ public class MPCTestClient {
         }
     }
 
-    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+    /**
+     * Test on encryption/decryption
+     *
+     * @param msgToEncDec     message as a BigInteger
+     * @param playersList     list of players that will encrypt/decrypt
+     * @param perfResultsList currently not used
+     * @param perfFile        currently not used
+     * @throws Exception if encryption/decryption fails
+     */
+    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<MPCPlayer> playersList, ArrayList<Map.Entry<String, Long>> perfResultsList, FileOutputStream perfFile) throws Exception {
         String operationName = "";
         Long combinedTime = (long) 0;
 
         // Encrypt EC Point 
         byte[] ciphertext = null;
         byte[] plaintext = null;
-        if (!mpcGlobals.players.isEmpty()) {
-            MPCPlayer player = mpcGlobals.players.get(0); // (only first  player == card)
+        if (!playersList.isEmpty()) {
+            MPCPlayer player = playersList.get(0); // (only first  player == card)
             plaintext = mpcGlobals.G.multiply(msgToEncDec).getEncoded(false);
             operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString());
             //ciphertext = player.Encrypt(QUORUM_INDEX, plaintext, runCfg, _PROFILE_PERFORMANCE);
@@ -487,7 +494,7 @@ public class MPCTestClient {
         //
         // Decrypt EC Point
         //
-        if (ciphertext.length > 0) {
+        if (ciphertext != null && ciphertext.length > 0) {
             ECPoint c2 = Util.ECPointDeSerialization(mpcGlobals.curve, ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
 
             // Combine all decryption shares (x_ic) (except for card which is added below) 
@@ -502,7 +509,7 @@ public class MPCTestClient {
                 combinedTime += m_lastTransmitTime;
                 combinedTimeDecrypt += m_lastTransmitTime;
 
-                perfResultsList.add(new Pair("* Combined Decrypt time", combinedTimeDecrypt));
+                perfResultsList.add(new AbstractMap.SimpleEntry<>("* Combined Decrypt time", combinedTimeDecrypt));
                 writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
             }
 
@@ -522,14 +529,12 @@ public class MPCTestClient {
      * of the group elements (Algorithm 4.3) received from the ICs for a
      * particular j, and stores it for future use
      *
-     * @param playersList
-     * @param channel
-     * @param perfResultsList
-     * @param perfFile
-     * @throws NoSuchAlgorithmException
-     * @throws Exception
+     * @param playersList     list of players
+     * @param perfResultsList currently not used
+     * @param perfFile        currently not used
+     * @throws Exception if generation fails
      */
-    static void PerformSignCache(ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
+    static void PerformSignCache(ArrayList<MPCPlayer> playersList, ArrayList<Map.Entry<String, Long>> perfResultsList, FileOutputStream perfFile) throws Exception {
 
         for (short round = 1; round <= mpcGlobals.Rands.length; round++) {
             boolean bFirstPlayer = true;
@@ -554,16 +559,13 @@ public class MPCTestClient {
      * ϵj ). The recipient of (m, j), σ, ϵ can verify the validity of the
      * signature by checking if ϵ = Hash(R| |Hash(m)| |j), where R = σ ·G +ϵ ·Y.
      *
-     * @param msgToSign
-     * @param i
-     * @param playersList
-     * @param channel
-     * @param perfResultsList
-     * @param perfFile
-     * @throws NoSuchAlgorithmException
-     * @throws Exception
+     * @param msgToSign       plaintext message
+     * @param playersList     list of players that sign the message
+     * @param perfResultsList currently not used
+     * @param perfFile        currently not used
+     * @throws Exception if signature fails
      */
-    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Map.Entry<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws Exception {
         // Sign EC Point
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
 
@@ -582,7 +584,7 @@ public class MPCTestClient {
                 }
             }
             System.out.println(String.format("Sign: %s", Util.bytesToHex(sum_s_BI.toByteArray())));
-            
+
             //
             //Verification
             //
@@ -593,7 +595,17 @@ public class MPCTestClient {
         }
     }
 
-    private static boolean Verify(byte[] plaintext, ECPoint pubkey, BigInteger s_bi, BigInteger e_bi) throws Exception {
+    /**
+     * Verification test
+     *
+     * @param plaintext byte[] plaintext
+     * @param pubkey    public  key used for verification
+     * @param s_bi      BigInteger s
+     * @param e_bi      BigInteger e
+     * @return verification result
+     * @throws NoSuchAlgorithmException in case message digest fails
+     */
+    private static boolean Verify(byte[] plaintext, ECPoint pubkey, BigInteger s_bi, BigInteger e_bi) throws NoSuchAlgorithmException {
         // Compute rv = sG+eY
         ECPoint rv_EC = mpcGlobals.G.multiply(s_bi); // sG
         rv_EC = rv_EC.add(pubkey.multiply(e_bi)); // +eY
@@ -608,32 +620,11 @@ public class MPCTestClient {
         //System.out.println(Util.bytesToHex(e_bi.toByteArray()));		
         //System.out.println(Util.bytesToHex(ev_bi.toByteArray()));
         assertIfSelected(e_bi.compareTo(ev_bi) == 0);
-        
+
         // compare ev with e
         return e_bi.compareTo(ev_bi) == 0;
     }
 
-
-    // Card Logistics
-    private static CardChannel Connect(MPCRunConfig runCfg) throws Exception {
-        switch (runCfg.testCardType) {
-            case PHYSICAL: {
-                return CardManagement.ConnectPhysicalCard(runCfg.targetReaderIndex, runCfg.appletAID);
-            }
-            case JCOPSIM: {
-                return CardManagement.ConnectJCOPSimulator(runCfg.targetReaderIndex, runCfg.appletAID);
-            }
-            case JCARDSIMLOCAL: {
-                return CardManagement.ConnectJCardSimLocalSimulator(runCfg.appletToSimulate, runCfg.appletAID);
-            }
-            case JCARDSIMREMOTE: {
-                return null; // Not implemented yet
-            }
-            default:
-                return null;
-        }
-
-    }
 
     public static byte[] SerializeBigInteger(BigInteger BigInt) {
 
@@ -665,6 +656,12 @@ public class MPCTestClient {
         return aRandomBigInt;
     }
 
+    /**
+     * Permissions are compressed into a short which is later sent to cards
+     *
+     * @param permissions array
+     * @return a short
+     */
     public static short compressACL(short[] permissions) {
         short aclShort = 0x0000;
         for (short permission : permissions) {
@@ -673,11 +670,13 @@ public class MPCTestClient {
         return aclShort;
     }
 
+    /**
+     * Generates this host's secrets
+     */
     public static void hostKeyGen() throws NoSuchProviderException, NoSuchAlgorithmException, InvalidKeySpecException {
-        // Generate host's keypair
         SecureRandom random = new SecureRandom();
         hostPrivateKey = new BigInteger(256, random);
-        hostPublicKey = MPCGlobals.G.multiply(hostPrivateKey);
+        hostPublicKey = mpcGlobals.G.multiply(hostPrivateKey);
         KeyFactory keyFactory = KeyFactory.getInstance("EC", "BC");
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
         org.bouncycastle.jce.spec.ECParameterSpec spec = ECNamedCurveTable.getParameterSpec("SecP256r1");
@@ -785,13 +784,9 @@ public class MPCTestClient {
         assert (false);
         return PM.TRAP_UNDEFINED;
     }
-    
-    public static void assertIfSelected(boolean operationResult)
-    {
-        if (_FAIL_ON_ASSERT)
-        {
-            assert (operationResult);
-        }
+
+    public static void assertIfSelected(boolean operationResult) {
+        assert !_FAIL_ON_ASSERT || (operationResult);
     }
 
     /* TODO: move to card where channel is known   
@@ -841,7 +836,7 @@ public class MPCTestClient {
      return lastFromPrevTime;
      }    
      */
-    static void SavePerformanceResults(HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw, String fileName) throws FileNotFoundException, IOException {
+    static void SavePerformanceResults(HashMap<Short, Map.Entry<Short, Long>> perfResultsSubpartsRaw, String fileName) throws IOException {
         // Save performance traps into single file
         FileOutputStream perfLog = new FileOutputStream(fileName);
         String output = "perfID, previous perfID, time difference between perfID and previous perfID (ms)\n";
@@ -853,7 +848,7 @@ public class MPCTestClient {
         perfLog.close();
     }
 
-    static void InsertPerfInfoIntoFiles(String basePath, String cardName, String experimentID, HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
+    static void InsertPerfInfoIntoFiles(String basePath, String cardName, String experimentID, HashMap<Short, Map.Entry<Short, Long>> perfResultsSubpartsRaw) throws IOException {
         File dir = new File(basePath);
         String[] filesArray = dir.list();
         if ((filesArray != null) && (dir.isDirectory() == true)) {
@@ -870,7 +865,7 @@ public class MPCTestClient {
         }
     }
 
-    static void InsertPerfInfoIntoFile(String filePath, String cardName, String experimentID, String outputDir, HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
+    static void InsertPerfInfoIntoFile(String filePath, String cardName, String experimentID, String outputDir, HashMap<Short, Map.Entry<Short, Long>> perfResultsSubpartsRaw) throws IOException {
         try {
             BufferedReader br = new BufferedReader(new FileReader(filePath));
             String basePath = filePath.substring(0, filePath.lastIndexOf("\\"));
@@ -887,12 +882,12 @@ public class MPCTestClient {
                     int trapStart = strLine.indexOf(PERF_TRAP_CALL);
                     int trapEnd = strLine.indexOf(PERF_TRAP_CALL_END);
                     // We have perf. trap, now check if we also corresponding measurement
-                    String perfTrapName = (String) strLine.substring(trapStart + PERF_TRAP_CALL.length(), trapEnd);
+                    String perfTrapName = strLine.substring(trapStart + PERF_TRAP_CALL.length(), trapEnd);
                     short perfID = getPerfStopFromName(perfTrapName);
 
                     if (perfResultsSubpartsRaw.containsKey(perfID)) {
                         // We have measurement for this trap, add into comment section
-                        resLine = String.format("%s // %d ms (%s,%s) %s", (String) strLine.substring(0, trapEnd + PERF_TRAP_CALL_END.length()), perfResultsSubpartsRaw.get(perfID).getValue(), cardName, experimentID, (String) strLine.subSequence(trapEnd + PERF_TRAP_CALL_END.length(), strLine.length()));
+                        resLine = String.format("%s // %d ms (%s,%s) %s", strLine.substring(0, trapEnd + PERF_TRAP_CALL_END.length()), perfResultsSubpartsRaw.get(perfID).getValue(), cardName, experimentID, strLine.subSequence(trapEnd + PERF_TRAP_CALL_END.length(), strLine.length()));
                     } else {
                         resLine = strLine;
                     }

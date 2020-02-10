@@ -1,7 +1,6 @@
 package mpctestclient;
 
 import ds.ov2.bignat.Bignat;
-import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
 import java.math.BigInteger;
@@ -11,58 +10,38 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 
 
-
-
 public class QuorumContext {
-
-    ECCurve curve;
-    //Key Pair
-    public BigInteger priv_key_BI;
-    public ECPoint pub_key_EC;
-    public byte[] pub_key_Hash;
-    public ECPoint curve_G;
-    public BigInteger curve_n;
-
-    //Signing
-    public byte[] secret_seed;
-    public BigInteger k_Bn;
-    public BigInteger e_BI;
-
-    public short signature_counter;
-    public Bignat signature_counter_Bn;
-
-    public short num_commitments_count;
-    public short num_pubkeys_count;
-
-    class Player {
-        public byte[] pubKey = null;
-        public boolean pubKeyValid = false;
-        public byte[] pubKeyHash = null;
-        public boolean pubKeyHashValid = false;
-    }
-
-    private Player[] players;
-    private StateModel state;
-
-    public ECPoint Yagg;
-    public short Yagg_shares_count;
-
-    public short CARD_INDEX_THIS;
-    public static short NUM_PLAYERS;
 
     // Consts
     public static final short MAX_NUM_PLAYERS = (short) 15;
     public static final short BASIC_ECC_LENGTH = (short) 32;
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
+    public static short NUM_PLAYERS;
+    //Key Pair
+    public BigInteger priv_key_BI;
+    public ECPoint pub_key_EC;
+    public byte[] pub_key_Hash;
+    public BigInteger curve_n;
+    //Signing
+    public byte[] secret_seed;
+    public BigInteger k_Bn;
+    public BigInteger e_BI;
+    public short signature_counter;
+    public Bignat signature_counter_Bn;
+    public short num_commitments_count;
+    public short num_pubkeys_count;
+    public ECPoint Yagg;
+    public short Yagg_shares_count;
 
-
-    public QuorumContext(ECPoint G, BigInteger n, ECCurve curve) throws StateModel.stateException {
-        this.curve_G = G;
-        this.curve_n = n;
-        this.curve = curve;
+    public short CARD_INDEX_THIS;
+    private MPCGlobals mpcGlobals;
+    private Player[] players;
+    private StateModel state;
+    public QuorumContext(MPCGlobals mpcGlobals) throws StateModel.StateException {
+        this.mpcGlobals = mpcGlobals;
 
         // Yagg initialization and secret seed generation
-        Yagg = curve.getInfinity();
+        Yagg = mpcGlobals.curve.getInfinity();
         SecureRandom random = new SecureRandom();
         secret_seed = new byte[SECRET_SEED_SIZE];
         random.nextBytes(secret_seed);
@@ -81,9 +60,9 @@ public class QuorumContext {
     }
 
     /**
-     *Setups this Simulated player
+     * Setups this Simulated player
      *
-     * @param numPlayers Number of players that will participate in this quorum
+     * @param numPlayers      Number of players that will participate in this quorum
      * @param thisPlayerIndex Index of this player
      * @return
      * @throws Exception
@@ -98,7 +77,7 @@ public class QuorumContext {
             throw new quorumContextException("Number of players is outside the accepted interval.");
         }
 
-        if (thisPlayerIndex >= MAX_NUM_PLAYERS || thisPlayerIndex < 0){
+        if (thisPlayerIndex >= MAX_NUM_PLAYERS || thisPlayerIndex < 0) {
             throw new quorumContextException("Player's index is not valid.");
         }
 
@@ -114,9 +93,9 @@ public class QuorumContext {
     /**
      * Resets the simulated player
      *
-     * @throws StateModel.stateException
+     * @throws StateModel.StateException
      */
-    public void Reset() throws StateModel.stateException {
+    public void Reset() throws StateModel.StateException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
         Invalidate(true);
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
@@ -125,10 +104,10 @@ public class QuorumContext {
     /**
      * Invalidates stored keys and calls KeyGen()
      *
-     * @throws StateModel.stateException
+     * @throws StateModel.StateException
      * @throws NoSuchAlgorithmException
      */
-    public void GenKeyPair() throws StateModel.stateException, NoSuchAlgorithmException {
+    public void GenKeyPair() throws StateModel.StateException, NoSuchAlgorithmException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
 
         Invalidate(false);
@@ -154,7 +133,7 @@ public class QuorumContext {
             priv_key_BI = new BigInteger("B346675518084623BC111CC53FF615B152A3F6D1585278370FA1BA0EA160237E".getBytes());
         }
 
-        pub_key_EC = curve_G.multiply(priv_key_BI);
+        pub_key_EC = mpcGlobals.G.multiply(priv_key_BI);
         players[CARD_INDEX_THIS].pubKeyValid = true;
         num_pubkeys_count++;
 
@@ -170,15 +149,15 @@ public class QuorumContext {
     }
 
     /**
-     *Computes and returns Ri,j
+     * Computes and returns Ri,j
      *
      * @param i incrementing request counter
-     * @return Ri,j
-     * @throws StateModel.stateException
+     * @return Ri, j
+     * @throws StateModel.StateException
      * @throws NoSuchAlgorithmException
      * @throws quorumContextException
      */
-    public byte[] Gen_Rin(short i) throws StateModel.stateException, NoSuchAlgorithmException, quorumContextException {
+    public byte[] Gen_Rin(short i) throws StateModel.StateException, NoSuchAlgorithmException, quorumContextException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
 
         // checks if the counter hasn't been used before == (if the counter is bigger then the previous one)
@@ -190,7 +169,7 @@ public class QuorumContext {
         signature_counter = i;
 
         Bignat counter = Util.makeBignatFromValue((int) i);
-        ECPoint Rin = curve_G.multiply(new BigInteger(PRF(counter, this.secret_seed)));
+        ECPoint Rin = mpcGlobals.G.multiply(new BigInteger(PRF(counter, this.secret_seed)));
         return Rin.getEncoded(false);
     }
 
@@ -215,7 +194,7 @@ public class QuorumContext {
      * Stores hashes of other player's public key
      *
      * @param playerIndex Index of the player whose hash is being stored
-     * @param hash_arr hash of public key
+     * @param hash_arr    hash of public key
      * @return
      * @throws Exception
      */
@@ -265,12 +244,11 @@ public class QuorumContext {
         return pub_key_EC.getEncoded(false);
     }
 
-
     /**
      * Stores public keys of other players
      *
      * @param playerIndex Index of the player whose public key is being stored
-     * @param pub_arr public key
+     * @param pub_arr     public key
      * @return
      * @throws Exception
      */
@@ -301,7 +279,7 @@ public class QuorumContext {
         num_pubkeys_count++;
 
         // adding submitted pubkey to Yagg
-        Yagg = Yagg.add(Util.ECPointDeSerialization(curve, pub_arr, 0));
+        Yagg = Yagg.add(Util.ECPointDeSerialization(mpcGlobals.curve, pub_arr, 0));
         Yagg_shares_count++;
 
         // when all players exchanged their pubkeys => makes state transition
@@ -325,26 +303,21 @@ public class QuorumContext {
         return true;
     }
 
-    //
-    // Crypto ops
-    //
-
-
     /**
      * Signs the byte[] plaintext
      *
-     * @param round incrementing request counter
-     * @param Rn random group element corresponding to the round
+     * @param round     incrementing request counter
+     * @param Rn        random group element corresponding to the round
      * @param plaintext plaintext to be signed
      * @return signature
      * @throws NoSuchAlgorithmException
-     * @throws StateModel.stateException
+     * @throws StateModel.StateException
      * @throws quorumContextException
      */
-    public BigInteger Sign(int round, byte[] Rn, byte[] plaintext) throws NoSuchAlgorithmException, StateModel.stateException, quorumContextException {
+    public BigInteger Sign(int round, byte[] Rn, byte[] plaintext) throws NoSuchAlgorithmException, StateModel.StateException, quorumContextException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
         Bignat roundBn = Util.makeBignatFromValue(round);
-        ECPoint R_EC = Util.ECPointDeSerialization(curve, Rn, 0);
+        ECPoint R_EC = Util.ECPointDeSerialization(mpcGlobals.curve, Rn, 0);
 
         // checks if the counter hasn't been used before == (if the counter is bigger then the previous one)
         if (!signature_counter_Bn.lesser(roundBn)) {
@@ -367,12 +340,16 @@ public class QuorumContext {
 
         this.k_Bn = new BigInteger(PRF(roundBn, secret_seed));
         BigInteger s_i_BI = this.k_Bn.subtract(e_BI.multiply(this.priv_key_BI));
-        s_i_BI = s_i_BI.mod(curve_n);
+        s_i_BI = s_i_BI.mod(mpcGlobals.n);
 
         //System.out.println("Simulated: s:        " + Util.bytesToHex(s_i_BI.toByteArray()));
         //System.out.println("Simulated: e:        " + Util.bytesToHex(e) + "\n");
         return s_i_BI;
     }
+
+    //
+    // Crypto ops
+    //
 
     /**
      * Encrypts the byte[] plaintext
@@ -386,9 +363,9 @@ public class QuorumContext {
 
         SecureRandom rnd = new SecureRandom();
         BigInteger rand_r = new BigInteger(256, rnd);
-        MPCGlobals.c1 = curve_G.multiply(rand_r);
-        MPCGlobals.c2 = MPCGlobals.AggPubKey.multiply(rand_r).add(Util.ECPointDeSerialization(curve, plaintext, 0));
-        return Util.joinArray(MPCGlobals.c1.getEncoded(false), MPCGlobals.c2.getEncoded(false));
+        mpcGlobals.c1 = mpcGlobals.G.multiply(rand_r);
+        mpcGlobals.c2 = mpcGlobals.AggPubKey.multiply(rand_r).add(Util.ECPointDeSerialization(mpcGlobals.curve, plaintext, 0));
+        return Util.joinArray(mpcGlobals.c1.getEncoded(false), mpcGlobals.c2.getEncoded(false));
     }
 
     /**
@@ -401,7 +378,7 @@ public class QuorumContext {
     public byte[] Decrypt(byte[] ciphertext) throws Exception {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_DecryptShare);
 
-        ECPoint c1 = Util.ECPointDeSerialization(curve, ciphertext, 0);
+        ECPoint c1 = Util.ECPointDeSerialization(mpcGlobals.curve, ciphertext, 0);
         ECPoint xc1_share = c1.multiply(priv_key_BI);
         return xc1_share.getEncoded(false);
     }
@@ -410,9 +387,9 @@ public class QuorumContext {
      * Invalidates stored keys and initializes necessary variables
      *
      * @param bEraseAllArrays if true, invalidates all variables
-     * @throws StateModel.stateException
+     * @throws StateModel.StateException
      */
-    private void Invalidate(boolean bEraseAllArrays) throws StateModel.stateException {
+    private void Invalidate(boolean bEraseAllArrays) throws StateModel.StateException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Invalidate);
 
         SecureRandom random = new SecureRandom();
@@ -420,10 +397,10 @@ public class QuorumContext {
         if (bEraseAllArrays) {
             random.nextBytes(secret_seed);
             priv_key_BI = new BigInteger(256, random);
-            pub_key_EC = curve_G.multiply(priv_key_BI);
+            pub_key_EC = mpcGlobals.G.multiply(priv_key_BI);
             num_commitments_count = 0;
             num_pubkeys_count = 0;
-            Yagg = curve.getInfinity();
+            Yagg = mpcGlobals.curve.getInfinity();
             Yagg_shares_count = 0;
         }
 
@@ -433,8 +410,7 @@ public class QuorumContext {
         for (Player playerI : players) {
             playerI.pubKeyHashValid = false;
             playerI.pubKeyValid = false;
-            if (bEraseAllArrays)
-            {
+            if (bEraseAllArrays) {
                 // overwrites pubkeys and pubkey hashes of other players
                 random.nextBytes(playerI.pubKey);
                 random.nextBytes(playerI.pubKeyHash);
@@ -446,7 +422,7 @@ public class QuorumContext {
     /**
      * Pseudo random function used for singing
      *
-     * @param i incrementing request number
+     * @param i    incrementing request number
      * @param seed secret seed
      * @return result of the PRF
      * @throws NoSuchAlgorithmException
@@ -459,14 +435,21 @@ public class QuorumContext {
         return md.digest();
     }
 
-    //
-    // Error handling
-    //
-
     // used for handling quorum context errors
     static class quorumContextException extends Exception {
         quorumContextException(String errorMessage) {
             super(errorMessage);
         }
+    }
+
+    //
+    // Error handling
+    //
+
+    class Player {
+        public byte[] pubKey = null;
+        public boolean pubKeyValid = false;
+        public byte[] pubKeyHash = null;
+        public boolean pubKeyHashValid = false;
     }
 }

@@ -2,6 +2,8 @@ package mpctestclient;
 
 import com.licel.jcardsim.io.CAD;
 import com.licel.jcardsim.io.JavaxSmartCardInterface;
+
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
@@ -13,12 +15,21 @@ import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import javax.smartcardio.TerminalFactory;
 
+/**
+ * Class used for managing cards - connecting and transmitting
+ * @author Petr Svenda
+ */
 public class CardManagement {
 
-    static Long m_lastTransmitTime = new Long(0);
+    static Long m_lastTransmitTime = 0L;
 
-    // Card Logistics
-    private static CardChannel Connect(MPCRunConfig runCfg) throws Exception {
+    /**
+     * Provides card's logistics
+     * @param runCfg object containing current protocol configuration
+     * @return established card channel
+     * @throws CardException if establishing connection fails
+     */
+    static CardChannel Connect(MPCRunConfig runCfg) throws CardException, NoSuchAlgorithmException {
         switch (runCfg.testCardType) {
             case PHYSICAL: {
                 return ConnectPhysicalCard(runCfg.targetReaderIndex, runCfg.appletAID);
@@ -78,19 +89,19 @@ public class CardManagement {
         System.out.println("MPC cards found: " + cardsList.size());
     }
 
-    public static CardChannel ConnectPhysicalCard(int targetReaderIndex, byte[] appletAID) throws Exception {
+    public static CardChannel ConnectPhysicalCard(int targetReaderIndex, byte[] appletAID) throws CardException {
         System.out.print("Looking for physical cards... ");
         return connectToCardByTerminalFactory(TerminalFactory.getDefault(), targetReaderIndex, appletAID);
     }
 
-    public static CardChannel ConnectJCOPSimulator(int targetReaderIndex, byte[] appletAID) throws Exception {
+    public static CardChannel ConnectJCOPSimulator(int targetReaderIndex, byte[] appletAID) throws CardException, NoSuchAlgorithmException {
         // JCOP Simulators
         System.out.print("Looking for JCOP simulators...");
         int[] ports = new int[]{8050};
         return connectToCardByTerminalFactory(TerminalFactory.getInstance("JcopEmulator", ports), targetReaderIndex, appletAID);
     }
 
-    public static CardChannel ConnectJCardSimLocalSimulator(Class appletClass, byte[] appAID) throws Exception {
+    public static CardChannel ConnectJCardSimLocalSimulator(Class appletClass, byte[] appAID) {
         System.setProperty("com.licel.jcardsim.terminal.type", "2");
         CAD cad = new CAD(System.getProperties());
         JavaxSmartCardInterface simulator = (JavaxSmartCardInterface) cad.getCardInterface();
@@ -189,13 +200,5 @@ public class CardManagement {
         log(response, 0);
     }
 
-    public static boolean checkSW(ResponseAPDU response) {
-        if (response.getSW() != (ISO7816.SW_NO_ERROR & 0xffff)) {
-            System.err.printf("Received error status: %02X.\n",
-                    response.getSW());
-            return false;
-        }
-        return true;
-    }
 
 }

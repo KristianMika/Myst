@@ -1,63 +1,35 @@
 package mpctestclient;
 
 import ds.ov2.bignat.Bignat;
-
-import java.math.BigInteger;
-
-import java.security.*;
-
-import java.security.spec.ECGenParameterSpec;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.smartcardio.CardChannel;
-import javax.smartcardio.CardException;
-import javax.smartcardio.CommandAPDU;
-import javax.smartcardio.ResponseAPDU;
-
-import javacard.security.ECPublicKey;
 import mpc.Consts;
-
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
+import javax.smartcardio.CardChannel;
+import javax.smartcardio.CardException;
+import javax.smartcardio.CommandAPDU;
+import javax.smartcardio.ResponseAPDU;
+import java.math.BigInteger;
+import java.security.*;
+import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 
 /**
+ * Implementation of MPCPlayer used with real cards
  *
  * @author Petr Svenda
  */
 public class CardMPCPlayer implements MPCPlayer {
-    
-    static class QuorumContext {
 
-        short playerIndex;
-        short quorumIndex = 0;
-        short numPlayers = 0;
-        BigInteger card_e_BI;
-        public byte[] pub_key_Hash;
-        ECPoint pubKey;
-        PublicKey pubkeyObject;
-        ECPoint AggPubKey;
-        Bignat requestCounter;
-
-
-        QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
-            this.quorumIndex = quorumIndex;
-            this.playerIndex = playerIndex;
-            this.numPlayers = numPlayers;
-            requestCounter = new Bignat((short) 2, false);
-            requestCounter.zero();
-        }
-    }
     CardChannel channel = null;
     String logFormat = "%-40s:%s%n\n-------------------------------------------------------------------------------\n";
     Long lastTransmitTime;
     boolean bFailOnAssert = true;
     HashMap<Short, QuorumContext> quorumsCtxMap;
     ECCurve curve;
-
     CardMPCPlayer(CardChannel channel, String logFormat, Long lastTransmitTime, boolean bFailOnAssert, ECCurve curve) {
         this.channel = channel;
         this.logFormat = logFormat;
@@ -65,6 +37,30 @@ public class CardMPCPlayer implements MPCPlayer {
         this.bFailOnAssert = bFailOnAssert;
         this.quorumsCtxMap = new HashMap<>();
         this.curve = curve;
+    }
+
+    static byte[] preparePacketData(byte operationCode, int numShortParams, Short param1, Short param2, Short param3) {
+        int offset = 0;
+        byte[] cmd = new byte[1 + 2 + 1 + 2 + numShortParams * 2];
+        cmd[offset] = Consts.TLV_TYPE_MPCINPUTPACKET;
+        offset++;
+        Util.shortToByteArray((short) (cmd.length - 3), cmd, offset);
+        offset += 2;
+        cmd[offset] = operationCode;
+        offset++;
+        Util.shortToByteArray((short) (2 * 2), cmd, offset);
+        offset += 2;
+        if (numShortParams >= 1) {
+            offset = Util.shortToByteArray(param1, cmd, offset);
+        }
+        if (numShortParams >= 2) {
+            offset = Util.shortToByteArray(param2, cmd, offset);
+        }
+        if (numShortParams >= 3) {
+            offset = Util.shortToByteArray(param3, cmd, offset);
+        }
+
+        return cmd;
     }
 
     //
@@ -96,7 +92,7 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public byte[] Gen_Rin(short quorumIndex, short i, byte hostIndex, PrivateKey hostPrivKey) throws NoSuchAlgorithmException, Exception {
+    public byte[] Gen_Rin(short quorumIndex, short i, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] rin = RetrieveRI(channel, quorumIndex, i, hostIndex, hostPrivKey);
         System.out.format(logFormat, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", Util.bytesToHex(rin));
         return rin;
@@ -174,9 +170,9 @@ public class CardMPCPlayer implements MPCPlayer {
             offset += 2;
             System.out.println(String.format("Consts.MAX_N_PLAYERS:\t\t %d", Util.getShort(data, offset)));
             offset += 2;
-            System.out.println(String.format("DKG.PLAYERS_IN_RAM:\t\t %b", (data[offset] == 0) ? false : true));
+            System.out.println(String.format("DKG.PLAYERS_IN_RAM:\t\t %b", data[offset] != 0));
             offset++;
-            System.out.println(String.format("DKG.COMPUTE_Y_ONTHEFLY:\t\t %b ", (data[offset] == 0) ? false : true));
+            System.out.println(String.format("DKG.COMPUTE_Y_ONTHEFLY:\t\t %b ", data[offset] != 0));
             offset++;
             System.out.println("-----------------");
 
@@ -274,30 +270,6 @@ public class CardMPCPlayer implements MPCPlayer {
         return preparePacketData(operationCode, 3, param1, param2, param3);
     }
 
-    static byte[] preparePacketData(byte operationCode, int numShortParams, Short param1, Short param2, Short param3) {
-        int offset = 0;
-        byte[] cmd = new byte[1 + 2 + 1 + 2 + numShortParams * 2];
-        cmd[offset] = Consts.TLV_TYPE_MPCINPUTPACKET;
-        offset++;
-        Util.shortToByteArray((short) (cmd.length - 3), cmd, offset);
-        offset += 2;
-        cmd[offset] = operationCode;
-        offset++;
-        Util.shortToByteArray((short) (2 * 2), cmd, offset);
-        offset += 2;
-        if (numShortParams >= 1) {
-            offset = Util.shortToByteArray(param1, cmd, offset);
-        }
-        if (numShortParams >= 2) {
-            offset = Util.shortToByteArray(param2, cmd, offset);
-        }
-        if (numShortParams >= 3) {
-            offset = Util.shortToByteArray(param3, cmd, offset);
-        }
-
-        return cmd;
-    }
-
     @Override
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         quorumsCtxMap.put(quorumIndex, new QuorumContext(quorumIndex, thisPlayerIndex, numPlayers));
@@ -336,13 +308,13 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-        quorumsCtxMap.get(quorumIndex).pub_key_Hash =  response.getData(); // Store pub key hash
+        quorumsCtxMap.get(quorumIndex).pub_key_Hash = response.getData(); // Store pub key hash
         return checkSW(response);
     }
 
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short id,
-            byte[] hash_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+                                   byte[] hash_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_COMMITMENT, quorumIndex, id, (short) hash_arr.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_STORE_COMMITMENT, hostPrivKey, (byte) 0x0, hostIndex, Util.concat(packetData, hash_arr));
         ResponseAPDU response = transmit(channel, cmd);
@@ -351,7 +323,7 @@ public class CardMPCPlayer implements MPCPlayer {
 
     @Override
     public boolean StorePubKey(short quorumIndex, short id,
-            byte[] pub_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+                               byte[] pub_arr, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_PUBKEY, quorumIndex, id, (short) pub_arr.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_STORE_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, Util.concat(packetData, pub_arr));
         ResponseAPDU response = transmit(channel, cmd);
@@ -359,7 +331,7 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey, MPCGlobals mpcGlobals) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
@@ -368,7 +340,7 @@ public class CardMPCPlayer implements MPCPlayer {
         // set PublicKey object
         BigInteger x = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getXCoord().toBigInteger();
         BigInteger y = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getYCoord().toBigInteger();
-        ECNamedCurveSpec params = new ECNamedCurveSpec("SecP256r1", MPCGlobals.curve, MPCGlobals.G, MPCGlobals.n);
+        ECNamedCurveSpec params = new ECNamedCurveSpec("SecP256r1", mpcGlobals.curve, mpcGlobals.G, mpcGlobals.n);
         java.security.spec.ECPoint w = new java.security.spec.ECPoint(x, y);
         KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
         quorumsCtxMap.get(quorumIndex).pubkeyObject = keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
@@ -408,7 +380,7 @@ public class CardMPCPlayer implements MPCPlayer {
     @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
 
-        //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
+        //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());
         byte[] signature = Sign_plain(quorumIndex, round, plaintext, Rn, hostIndex, hostPrivKey);
 
         //Parse s from Card
@@ -433,14 +405,11 @@ public class CardMPCPlayer implements MPCPlayer {
         return response.getData();
     }
 
-
     private boolean checkSW(ResponseAPDU response) {
         if (response.getSW() != (Consts.SW_SUCCESS & 0xffff)) {
             System.err.printf("Received error status: %02X.\n",
                     response.getSW());
-            if (bFailOnAssert) {
-                assert (false); // break on error
-            }
+            assert !bFailOnAssert; // break on error
             return false;
         }
         return true;
@@ -449,11 +418,11 @@ public class CardMPCPlayer implements MPCPlayer {
     /**
      * Method for building and signing packets.
      *
-     * @param function (byte) protocol function
+     * @param function    (byte) protocol function
      * @param hostPrivKey (PrivateKey) host's private key object
-     * @param p1 (byte) the first parameter
-     * @param p2 (byte) the second parameter
-     * @param data (byte[]) packet data
+     * @param p1          (byte) the first parameter
+     * @param p2          (byte) the second parameter
+     * @param data        (byte[]) packet data
      * @return CommandAPDU packet with signature
      * @throws Exception when signing fails
      */
@@ -484,9 +453,9 @@ public class CardMPCPlayer implements MPCPlayer {
     /**
      * Method for ECDSA signature verification
      *
-     * @param data plaintext
+     * @param data      plaintext
      * @param signature signature
-     * @param pubkey public key as PublicKey object
+     * @param pubkey    public key as PublicKey object
      * @return verification result
      * @throws GeneralSecurityException in case signature is in incorrect format
      */
@@ -501,7 +470,7 @@ public class CardMPCPlayer implements MPCPlayer {
      * Parses packet and calls verifyECDSASignature()
      *
      * @param apdubuf received APDU buffer
-     * @param pubkey card's pubkey as PublicKey object
+     * @param pubkey  card's pubkey as PublicKey object
      * @return byte[] data part of the packet
      * @throws GeneralSecurityException if verifyECDSASignature fails
      */
@@ -530,6 +499,28 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_TESTECC, (byte) 2, point1.getEncoded(false).length, Util.concat(point1.getEncoded(false), scalar.toByteArray()));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
+    }
+
+    static class QuorumContext {
+
+        public byte[] pub_key_Hash;
+        short playerIndex;
+        short quorumIndex = 0;
+        short numPlayers = 0;
+        BigInteger card_e_BI;
+        ECPoint pubKey;
+        PublicKey pubkeyObject;
+        ECPoint AggPubKey;
+        Bignat requestCounter;
+
+
+        QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
+            this.quorumIndex = quorumIndex;
+            this.playerIndex = playerIndex;
+            this.numPlayers = numPlayers;
+            requestCounter = new Bignat((short) 2, false);
+            requestCounter.zero();
+        }
     }
 
     /* Debug only, not supported on real card

@@ -1,43 +1,32 @@
 package mpctestclient;
 
+import org.bouncycastle.math.ec.ECPoint;
+
 import java.math.BigInteger;
 import java.security.PrivateKey;
 
-import org.bouncycastle.math.ec.ECPoint;
-
-import org.bouncycastle.math.ec.ECCurve;
-
-
 
 /**
+ * Implementation of MPCPlayer that simulates a player.
  *
  * @author Vasilios Mavroudis and Petr Svenda
  */
 class SimulatedMPCPlayer implements MPCPlayer {
 
-    public ECPoint G;
-    public BigInteger n;
-    public ECCurve curve;
-
-    public QuorumContext[] quorums;
-
 
     public static final short MAX_QUORUMS = 5;
+    public QuorumContext[] quorums;
 
-    public SimulatedMPCPlayer(ECPoint G, BigInteger n, ECCurve curve) throws StateModel.stateException {
-        this.G = G;
-        this.n = n;
-        this.curve = curve;
-
+    public SimulatedMPCPlayer(MPCGlobals mpcGlobals) throws StateModel.StateException {
         // Quorums initialization
         quorums = new QuorumContext[MAX_QUORUMS];
         for (short i = 0; i < quorums.length; i++) {
-            quorums[i] = new QuorumContext(G, n, curve);
+            quorums[i] = new QuorumContext(mpcGlobals);
         }
     }
 
     @Override
-    public boolean SetHostAuthPubkey(ECPoint pubkey, short aclByte, short quorumIndex, byte hostIndex, PrivateKey hostPrivKey){
+    public boolean SetHostAuthPubkey(ECPoint pubkey, short aclByte, short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) {
         return true;
     }
 
@@ -89,7 +78,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public boolean Remove (short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws SimulatedPlayerException, StateModel.stateException {
+    public boolean Remove(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws SimulatedPlayerException, StateModel.StateException {
         if (quorumIndex < 0 || quorumIndex >= MAX_QUORUMS) {
             throw new SimulatedPlayerException("Invalid quorum index.");
         }
@@ -119,7 +108,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     @Override
-    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+    public byte[] RetrievePubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey, MPCGlobals mpcGlobals) throws Exception {
         return quorums[quorumIndex].RetrievePubKey();
     }
 
@@ -132,7 +121,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     public boolean RetrieveAggPubKey(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].RetrieveAggPubKey();
     }
-    
+
     @Override
     public byte[] Encrypt(short quorumIndex, byte[] plaintext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         return quorums[quorumIndex].Encrypt(plaintext);
