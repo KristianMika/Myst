@@ -40,5 +40,6 @@ hs_err_pid*
 
 # IDEA files and folders
 /out/
+/MPCTestClient/out/
 /.idea/
 *.iml
