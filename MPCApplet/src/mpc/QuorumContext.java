@@ -209,7 +209,7 @@ public class QuorumContext {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_RetrieveCommitment);
         if (players[CARD_INDEX_THIS].bYsCommitmentValid) {
             Util.arrayCopyNonAtomic(players[CARD_INDEX_THIS].YsCommitment, (short) 0, array, offset, (short) players[CARD_INDEX_THIS].YsCommitment.length);
-            
+
             // In extreme case, when quorum is of size 1 and StoreCommitment() is skipped, the state transition has to happen here
             if (Y_EC_onTheFly_shares_count == NUM_PLAYERS) {
                 state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);
@@ -434,6 +434,6 @@ public class QuorumContext {
     }
 
     short signApdubuffer(byte[] apdubuf, short offset, short payloadLength) {
-        return cryptoOps.computeECDSASignature(apdubuf, offset, payloadLength, apdubuf, (short) ( 2 * 2 + payloadLength), (ECPrivateKey) pair.getPrivate());
+        return cryptoOps.computeECDSASignature(apdubuf, offset, payloadLength, apdubuf, (short) (offset + payloadLength), (ECPrivateKey) pair.getPrivate());
     }
 }

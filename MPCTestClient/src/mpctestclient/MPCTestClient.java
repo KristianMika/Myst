@@ -73,7 +73,7 @@ public class MPCTestClient {
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 4;
             //runCfg.numWholeTestRepeats = 10; //more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
-            runCfg.numPlayers = 1;
+            runCfg.numPlayers = 5;
             runCfg.cardName = "gd60";
 
 

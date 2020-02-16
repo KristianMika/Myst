@@ -163,7 +163,7 @@ public class Consts {
 
     // Lengths
     public static final byte CARD_ID_LONG_LENGTH = (byte) 16;   // Length of unique card ID generated during applet install
-    
+
     public static final short BASIC_ECC_LENGTH = (short) 32; // 32 => 256b ECC
     public static final short SHARE_BASIC_SIZE = BASIC_ECC_LENGTH;       
     public static final short SHARE_DOUBLE_SIZE = (short) (2 * SHARE_BASIC_SIZE);           // intermediate result of multiplication operation with shares (double bit length)

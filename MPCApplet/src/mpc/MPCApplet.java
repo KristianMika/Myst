@@ -438,6 +438,7 @@ public class MPCApplet extends Applet {
     /**
      * Upon the generation of the triplet, the members perform a pairwise
      * exchange of their commitments. KeyGen_RetrieveCommitment returns commitment for this card
+     * Outgoing packet: 2B - data length | 2B - signature length | data (commitment) | signature
      * @param apdu 
      */
     void KeyGen_RetrieveCommitment(APDU apdu) {
@@ -450,9 +451,15 @@ public class MPCApplet extends Applet {
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_RetrieveCommitment);
         // Obtain commitment for this card
-        short len = quorumCtx.RetrieveCommitment(apdubuf, (short) 0);
-        // TODO: sign the commitment (if not signed later by host)
+        short len = quorumCtx.RetrieveCommitment(apdubuf, (short) (2 * Consts.PACKET_SHORT_PARAM_LENGTH));
+        // set the data length parameter
+        Util.setShort(apdubuf, (short) 0, len);
 
+        short sigLen = quorumCtx.signApdubuffer(apdubuf, (short) (2 * Consts.PACKET_SHORT_PARAM_LENGTH), len);
+        len += 2 * Consts.PACKET_SHORT_PARAM_LENGTH;
+        // set the signature length parameter
+        Util.setShort(apdubuf, Consts.PACKET_SHORT_PARAM_LENGTH, sigLen);
+        len += sigLen;
         apdu.setOutgoingAndSend((short) 0, len);
     }    
     
@@ -536,6 +543,7 @@ public class MPCApplet extends Applet {
      * a different share than the one they committed to during the protocol. 
      * Moreover, since Yi are shares of the public key, they are also
      * assumed to be public, and available to any untrusted party.
+    * Outgoing packet: 2B - data length | 2B - signature length | data (Yagg) | signature
      */
     void KeyGen_RetrieveAggregatedPublicKey(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
@@ -550,7 +558,7 @@ public class MPCApplet extends Applet {
         short bufferLength = 0;
         short len = quorumCtx.GetY().getW(apdubuf, (short) (2 * Consts.PACKET_SHORT_PARAM_LENGTH));
         bufferLength += len;
-        // set the payload length parameter
+        // set the data length parameter
         Util.setShort(apdubuf, (short) 0, len);
         // append signature
         len = quorumCtx.signApdubuffer(apdubuf, (short) (2 * Consts.PACKET_SHORT_PARAM_LENGTH), len);

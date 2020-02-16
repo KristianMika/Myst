@@ -12,6 +12,7 @@ import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import java.math.BigInteger;
 import java.security.*;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -308,7 +309,13 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-        quorumsCtxMap.get(quorumIndex).pub_key_Hash = response.getData(); // Store pub key hash
+        byte[] responseData = response.getData();
+        short dataLength = Util.getShort(responseData, 0);
+        short sigLength = Util.getShort(responseData, Consts.PACKET_SHORT_PARAM_LENGTH);
+        byte[] pubKeyHash = Arrays.copyOfRange(responseData, 2 * Consts.PACKET_SHORT_PARAM_LENGTH, 2 * Consts.PACKET_SHORT_PARAM_LENGTH + dataLength);
+        byte[] signature = Arrays.copyOfRange(responseData, 2 * Consts.PACKET_SHORT_PARAM_LENGTH + dataLength, 2 * Consts.PACKET_SHORT_PARAM_LENGTH + dataLength + sigLength);
+        quorumsCtxMap.get(quorumIndex).pub_key_Hash = pubKeyHash;
+        quorumsCtxMap.get(quorumIndex).retrieveCommitmentSignature = signature; // signature is verified after the public key is received
         return checkSW(response);
     }
 
@@ -337,6 +344,7 @@ public class CardMPCPlayer implements MPCPlayer {
         ResponseAPDU response = transmit(channel, cmd);
         quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(curve, response.getData(), 0);  // Store Pub
 
+
         // set PublicKey object
         BigInteger x = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getXCoord().toBigInteger();
         BigInteger y = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getYCoord().toBigInteger();
@@ -344,6 +352,15 @@ public class CardMPCPlayer implements MPCPlayer {
         java.security.spec.ECPoint w = new java.security.spec.ECPoint(x, y);
         KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
         quorumsCtxMap.get(quorumIndex).pubkeyObject = keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
+        QuorumContext thisQContext = quorumsCtxMap.get(quorumIndex);
+
+        // verifies INS_KEYGEN_RETRIEVE_COMMITMENT signature
+        if (!verifyECDSASignature(thisQContext.pub_key_Hash, thisQContext.retrieveCommitmentSignature, thisQContext.pubkeyObject)) {
+            quorumsCtxMap.get(quorumIndex).pubkeyObject = null;
+            quorumsCtxMap.get(quorumIndex).pubKey = null;
+            throw new SecurityException("Signature verification failed");
+        }
+
         return response.getData();
     }
 
@@ -504,6 +521,7 @@ public class CardMPCPlayer implements MPCPlayer {
     static class QuorumContext {
 
         public byte[] pub_key_Hash;
+        public byte[] retrieveCommitmentSignature;
         short playerIndex;
         short quorumIndex = 0;
         short numPlayers = 0;
@@ -512,6 +530,7 @@ public class CardMPCPlayer implements MPCPlayer {
         PublicKey pubkeyObject;
         ECPoint AggPubKey;
         Bignat requestCounter;
+
 
 
         QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
