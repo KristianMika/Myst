@@ -401,8 +401,13 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(mpcGlobals.curve, response.getData(), 0);  // Store Pub
 
+        byte[] responseData = response.getData();
+        byte[] data = Arrays.copyOfRange(responseData, 0, 65);
+        short sigLen = Util.getShort(responseData, 65);
+        byte[] signatue = Arrays.copyOfRange(responseData, 65 + 2, 65 + 2 + sigLen);
+
+        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(mpcGlobals.curve, data , 0);  // Store Pub
 
         // set PublicKey object
         BigInteger x = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getXCoord().toBigInteger();
@@ -412,6 +417,14 @@ public class CardMPCPlayer implements MPCPlayer {
         KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
         quorumsCtxMap.get(quorumIndex).pubkeyObject = keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
         QuorumContext thisQContext = quorumsCtxMap.get(quorumIndex);
+
+        // verifies INS_KEYGEN_RETRIEVE_PUBKEY signature
+        if (!verifyECDSASignature(data, signatue, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
+            quorumsCtxMap.get(quorumIndex).pubkeyObject = null;
+            quorumsCtxMap.get(quorumIndex).pubKey = null;
+            throw new SecurityException("Signature verification failed");
+        }
+
 
         // verifies INS_KEYGEN_RETRIEVE_COMMITMENT signature
         if (!verifyECDSASignature(thisQContext.pub_key_Hash, thisQContext.retrieveCommitmentSignature, thisQContext.pubkeyObject)) {

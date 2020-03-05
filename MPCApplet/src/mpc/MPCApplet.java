@@ -30,8 +30,7 @@ public class MPCApplet extends Applet {
     // TODO: remove boolean variables
     // TODO: consider unification of STATE_QUORUM_INITIALIZED and STATE_KEYGEN_CLEARED
     // TODO: Rename Bignat variables
-    // TODO: Capture all exceptions in process() and reset state after several detected exceptions to prevent repeated attacks 
-    // TODO: encrypt result of DecryptShare under host public key
+    // TODO: Capture all exceptions in process() and reset state after several detected exceptions to prevent repeated attacks
     // TODO: unify all member attributes under m_xxx naming and camelCase
     
     public byte[] cardIDLong = null; // unique card ID generated during the applet install
@@ -498,6 +497,7 @@ public class MPCApplet extends Applet {
      * importance as it forces the participants to commit to a share of Yagg, before receiving the shares of others. 
      * This prevents attacks where an adversary first collects the shares of others, and then crafts its share so as to bias the final pair,
      * towards a secret key they know.
+     * 65B pub key | 2B signature length | xB signature
      * @param apdu 
      */
     void KeyGen_RetrievePublicKey(APDU apdu) {
@@ -511,8 +511,10 @@ public class MPCApplet extends Applet {
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetYi);
         // Retrieve public key
         short len = quorumCtx.GetYi(apdubuf, (short) 0);
-        // TODO: sign the commitment (if not signed later by host)
 
+        short sigLen = quorumCtx.signApdubuffer(apdubuf, (short) 0, len, apdubuf, (short) (len + 2));
+        Util.setShort(apdubuf, len, sigLen);
+        len += sigLen + 2;
         apdu.setOutgoingAndSend((short) 0, len);
     }
     
