@@ -4,7 +4,13 @@ import javacard.security.*;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
+import javacard.security.KeyAgreement;
+import javacard.security.KeyPair;
+import javacard.security.MessageDigest;
+import javacard.security.Signature;
+import javacardx.crypto.Cipher;
 import mpc.jcmathlib.*;
+
 
 
 /**
@@ -47,7 +53,12 @@ public class MPCCryptoOps {
     byte[] m_shortByteArray = null; // used to return short represenated as array of 2 bytes
     byte[] tmp_arr = null; // TODO: used as  array for temporary result -> move to resource manager
 
-    
+    byte[] ecdhSharedSecret;
+    boolean ecdhSharedSecretValid;
+    Cipher aesCipher;
+
+
+
     static final short SHIFT_BYTES_AAPROX = Consts.SHARE_DOUBLE_SIZE_CARRY;
     static short res2Len = (short) ((short) 97 - SHIFT_BYTES_AAPROX);
 
@@ -441,5 +452,74 @@ public class MPCCryptoOps {
         Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
         ECDSAObject.init(privKey, Signature.MODE_SIGN);
         return ECDSAObject.sign(plaintext, plaintextOffset, plaintextLength, dst, dstOffset);
+    }
+
+    short PerformECDHExchange(byte[] apdubuf, short keyOffset, short keyLength) {
+
+        // Generate this card's ephemeral key pair
+        javacard.security.KeyPair ephemKeyPair = new javacard.security.KeyPair(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_256);
+        ephemKeyPair.genKeyPair();
+
+        javacard.security.KeyAgreement agreement = javacard.security.KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DHC_PLAIN, false);
+        agreement.init(ephemKeyPair.getPrivate());
+
+        byte[] sharedSecret = new byte[256/8];
+        agreement.generateSecret(apdubuf, keyOffset, keyLength, sharedSecret, (short) 0);
+
+
+        md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
+        md.update(sharedSecret, (short) 0, (short) sharedSecret.length);
+
+        // Reconstruct the server's pub key
+        ECPublicKey serversPubKey = (ECPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, false);
+        serversPubKey.setW(apdubuf, keyOffset, keyLength);
+
+        md.update(apdubuf, keyOffset, keyLength);
+
+        // copy the pub key to buffer
+        short pubKeyLen = ((ECPublicKey) ephemKeyPair.getPublic()).getW(apdubuf, (short) 2);
+        Util.setShort(apdubuf, (short) 0, pubKeyLen);
+
+        ecdhSharedSecret = new byte[256 / 8];
+        md.doFinal(apdubuf, (short) 2, pubKeyLen, ecdhSharedSecret, (short) 0);
+        ecdhSharedSecretValid = true;
+
+        return (short) (pubKeyLen + 2);
+
+ }
+
+    /**
+     * 2B cipher length | xB cipher | 16B IV
+     * @param source byte array
+     * @param dataOffset of the plaintext
+     * @param dataLength plaintext length
+     * @param destination byte array
+     * @param destinationOffset offset
+     * @return length of the cipher
+     */
+    short EncryptUsingAES(byte[] source, short dataOffset, short dataLength, byte[] destination, short destinationOffset) {
+
+        if (!ecdhSharedSecretValid) {
+            throw new ISOException(Consts.SW_DH_EXCHANGE_SKIPPED);
+        }
+        ecdhSharedSecretValid = false;
+
+        byte[] secret16B = new byte[16];
+        Util.arrayCopyNonAtomic(ecdhSharedSecret, (short) 0, secret16B, (short) 0, (short) 16);
+        AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
+
+        aesKey.setKey(secret16B, (short) 0);
+        aesCipher = Cipher.getInstance(Cipher.ALG_AES_CBC_ISO9797_M2, false);
+
+        byte[] aesIv = new byte[16];
+        randomData.generateData(aesIv, (short) 0, (short) aesIv.length);
+
+        aesCipher.init(aesKey, Cipher.MODE_ENCRYPT, aesIv, (short) 0, (short) aesIv.length);
+
+        short len = aesCipher.doFinal(source, dataOffset, dataLength, destination, destinationOffset);
+
+        Util.arrayCopy(aesIv, (short) 0, destination, (short) (destinationOffset + len), (short) aesIv.length);
+
+        return len;
     }
 }

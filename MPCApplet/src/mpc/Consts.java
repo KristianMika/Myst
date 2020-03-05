@@ -43,6 +43,7 @@ public class Consts {
     // Encryption/Decryption Operations
     public final static byte INS_ENCRYPT			= (byte) 0x50;
     public final static byte INS_DECRYPT			= (byte) 0x51;
+    public final static byte INS_ECDH_EXCHANGE = (byte) 0x52;
     
     
     public final static byte INS_GENERATE_RANDOM                = (byte) 0x55;
@@ -94,6 +95,7 @@ public class Consts {
     public static final short SW_INVALID_PACKET_SIGNATURE       = (short) 0x8015;
     public static final short SW_HOST_NOT_INITIALISED           = (short) 0x8016;
     public static final short SW_HOST_ALREADY_INITIALISED       = (short) 0x8017;
+    public static final short SW_DH_EXCHANGE_SKIPPED            = (short) 0x8018;
 
     
             

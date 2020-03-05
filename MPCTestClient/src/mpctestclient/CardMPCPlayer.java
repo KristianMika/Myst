@@ -3,15 +3,19 @@ package mpctestclient;
 import ds.ov2.bignat.Bignat;
 import mpc.Consts;
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
-import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
+import javax.crypto.Cipher;
+import javax.crypto.KeyAgreement;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import java.math.BigInteger;
 import java.security.*;
+import java.security.interfaces.ECPublicKey;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -30,14 +34,15 @@ public class CardMPCPlayer implements MPCPlayer {
     Long lastTransmitTime;
     boolean bFailOnAssert = true;
     HashMap<Short, QuorumContext> quorumsCtxMap;
-    ECCurve curve;
-    CardMPCPlayer(CardChannel channel, String logFormat, Long lastTransmitTime, boolean bFailOnAssert, ECCurve curve) {
+    MPCGlobals mpcGlobals;
+
+    CardMPCPlayer(CardChannel channel, String logFormat, Long lastTransmitTime, boolean bFailOnAssert, MPCGlobals mpcGlobals) {
         this.channel = channel;
         this.logFormat = logFormat;
         this.lastTransmitTime = lastTransmitTime;
         this.bFailOnAssert = bFailOnAssert;
         this.quorumsCtxMap = new HashMap<>();
-        this.curve = curve;
+        this.mpcGlobals = mpcGlobals;
     }
 
     static byte[] preparePacketData(byte operationCode, int numShortParams, Short param1, Short param2, Short param3) {
@@ -271,6 +276,60 @@ public class CardMPCPlayer implements MPCPlayer {
         return preparePacketData(operationCode, 3, param1, param2, param3);
     }
 
+    /**
+     * Performs EC Diffie Hellman exchange and computes a shared secret.
+     * TODO: SIGN THE OUTGOING PACKET
+     *
+     * @param quorumIndex quorum Index
+     * @param hostIndex   host's index
+     * @param hostPrivKey host's private key used for signature (not implemented yet)
+     * @return a shared secret as a byte array
+     * @throws Exception if fails
+     */
+    byte[] performDHExchange(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+
+        // Generate server's key pair
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
+        kpg.initialize(256);
+        KeyPair kp = kpg.generateKeyPair();
+        java.security.spec.ECPoint ephemPubKeyPoint = ((ECPublicKey) kp.getPublic()).getW();
+        ECPoint newPoint = mpcGlobals.curve.createPoint(ephemPubKeyPoint.getAffineX(), ephemPubKeyPoint.getAffineY());
+        byte[] ephemPubKeyEnc = newPoint.getEncoded(false);
+
+        // send ephemPubKeyEnc to the card
+        byte[] packetData = preparePacketData(Consts.INS_ECDH_EXCHANGE, quorumIndex, (short) ephemPubKeyEnc.length);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_ECDH_EXCHANGE, hostPrivKey, (byte) 0x00, hostIndex, Util.concat(packetData, ephemPubKeyEnc));
+
+        ResponseAPDU response = transmit(channel, cmd);
+        byte[] responseData = response.getData();
+
+        // reconstruct the card's public key
+        short keyLength = Util.getShort(responseData, 0);
+        byte[] receivedPubKey = Arrays.copyOfRange(responseData, 2, 2 + keyLength);
+        ECPoint receivedECPoint = Util.ECPointDeSerialization(mpcGlobals.curve, receivedPubKey, 0);  // Store Pub
+
+        BigInteger x = receivedECPoint.normalize().getXCoord().toBigInteger();
+        BigInteger y = receivedECPoint.normalize().getYCoord().toBigInteger();
+
+        ECNamedCurveSpec params = new ECNamedCurveSpec("SecP256r1", mpcGlobals.curve, mpcGlobals.G, mpcGlobals.n);
+        java.security.spec.ECPoint w = new java.security.spec.ECPoint(x, y);
+        KeyFactory keyFactory = KeyFactory.getInstance("EC");
+        PublicKey ecPubKey = keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
+
+        KeyAgreement agreement = KeyAgreement.getInstance("ECDH");
+        agreement.init(kp.getPrivate());
+        agreement.doPhase(ecPubKey, true);
+        byte[] sharedSecret = agreement.generateSecret();
+
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(sharedSecret);
+        md.update(ephemPubKeyEnc);
+        md.update(receivedPubKey);
+
+        return md.digest();
+
+    }
+
     @Override
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
         quorumsCtxMap.put(quorumIndex, new QuorumContext(quorumIndex, thisPlayerIndex, numPlayers));
@@ -342,7 +401,7 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, hostPrivKey, (byte) 0x0, hostIndex, packetData);
         ResponseAPDU response = transmit(channel, cmd);
-        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(curve, response.getData(), 0);  // Store Pub
+        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(mpcGlobals.curve, response.getData(), 0);  // Store Pub
 
 
         // set PublicKey object
@@ -372,7 +431,7 @@ public class CardMPCPlayer implements MPCPlayer {
         ResponseAPDU response = transmit(channel, cmd);
         byte[] responseData = response.getData();
         byte[] aggPubKey = parseAndVerifyPacket(responseData, quorumsCtxMap.get(quorumIndex).pubkeyObject);
-        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(curve, aggPubKey, 0); // Store aggregated pub
+        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(mpcGlobals.curve, aggPubKey, 0); // Store aggregated pub
         return checkSW(response);
     }
 
@@ -387,11 +446,59 @@ public class CardMPCPlayer implements MPCPlayer {
 
     @Override
     public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte hostIndex, PrivateKey hostPrivKey) throws Exception {
+        byte[] sharedSecret = performDHExchange(quorumIndex, hostIndex, hostPrivKey);
+
         byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_DECRYPT, hostPrivKey, (byte) 0x0, hostIndex, Util.concat(packetData, ciphertext));
         ResponseAPDU response = transmit(channel, cmd);
 
-        return response.getData();
+        byte[] responseData = response.getData();
+        // parse received packet to data and signature
+        short dataLength = Util.getShort(responseData, 0);
+        byte[] data = Arrays.copyOfRange(responseData, 0, 2 + dataLength + 16);
+        short sigLen = Util.getShort(responseData, 2 + dataLength + 16);
+        byte[] signature = Arrays.copyOfRange(responseData, 2 + dataLength + 16 + 2, 2 + dataLength + 16 + 2 + sigLen);
+        if (!verifyECDSASignature(data, signature, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
+            throw new GeneralSecurityException("Bogus packet signature.");
+        }
+
+        return decryptAes(data, sharedSecret);
+
+    }
+
+    /**
+     * Decrypts aes cipher
+     * @param responseData input array
+     * @param sharedSecret byte array with a shared secret
+     * @return decrypted array
+     * @throws Exception if fails
+     */
+    byte[] decryptAes(byte[] responseData, byte[] sharedSecret) throws Exception {
+        short cipherLength = Util.getShort(responseData, 0);
+        byte[] receivedCipher = Arrays.copyOfRange(responseData, 2, cipherLength + 2);
+
+        byte[] aesIv = Arrays.copyOfRange(responseData, 2 + cipherLength, 2 + cipherLength + 16);
+
+        IvParameterSpec ivSpec = new IvParameterSpec(aesIv);
+
+        Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
+        SecretKeySpec aesKey = new SecretKeySpec(sharedSecret, 0, 16, "AES");
+        cipher.init(Cipher.DECRYPT_MODE, aesKey, ivSpec);
+
+        byte[] decrypted = cipher.doFinal(receivedCipher);
+
+        return removeISO9797_m2Padding(decrypted);
+    }
+
+    byte[] removeISO9797_m2Padding(byte[] plain) {
+        int len = plain.length;
+        for (int i = 0; i < plain.length; i++) {
+            if (plain[i] == ((byte) 0x80) && (i + 1 == plain.length || plain[i + 1] == ((byte) 0x00))) {
+                len = i;
+                break;
+            }
+        }
+        return Arrays.copyOfRange(plain, 0, len);
     }
 
     @Override
@@ -530,7 +637,6 @@ public class CardMPCPlayer implements MPCPlayer {
         PublicKey pubkeyObject;
         ECPoint AggPubKey;
         Bignat requestCounter;
-
 
 
         QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {

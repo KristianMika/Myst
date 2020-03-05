@@ -121,7 +121,7 @@ public class MPCTestClient {
         // Create card contexts, fill cards IDs
         short cardID = runCfg.thisCardID;
         for (CardChannel channel : cardsList) {
-            CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, format, m_lastTransmitTime, _FAIL_ON_ASSERT, mpcGlobals.curve);
+            CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, format, m_lastTransmitTime, _FAIL_ON_ASSERT, mpcGlobals);
             // If required, make the applet "backdoored" to demonstrate functionality of incorrect behavior of a malicious attacker
             if (_IS_BACKDOORED_EXAMPLE) {
                 cardPlayer.SetBackdoorExample(channel, true);
@@ -273,7 +273,7 @@ public class MPCTestClient {
         // Create card contexts, fill cards IDs
         short cardID = runCfg.thisCardID;
         for (CardChannel channel : cardsList) {
-            CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, format, m_lastTransmitTime, _FAIL_ON_ASSERT, mpcGlobals.curve);
+            CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, format, m_lastTransmitTime, _FAIL_ON_ASSERT, mpcGlobals);
             // If required, make the applet "backdoored" to demonstrate functionality of incorrect behavior of a malicious attacker
             if (_IS_BACKDOORED_EXAMPLE) {
                 cardPlayer.SetBackdoorExample(channel, true);

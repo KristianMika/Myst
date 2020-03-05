@@ -8,6 +8,8 @@ import javacard.security.ECPrivateKey;
 import javacard.security.ECPublicKey;
 import javacard.security.KeyPair;
 import mpc.jcmathlib.*;
+
+
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -435,5 +437,17 @@ public class QuorumContext {
 
     short signApdubuffer(byte[] apdubuf, short offset, short payloadLength) {
         return cryptoOps.computeECDSASignature(apdubuf, offset, payloadLength, apdubuf, (short) (offset + payloadLength), (ECPrivateKey) pair.getPrivate());
+    }
+
+    short signApdubuffer(byte[] apdubuf, short offset, short payloadLength, byte[] dest, short destinationOffset) {
+        return cryptoOps.computeECDSASignature(apdubuf, offset, payloadLength, dest, destinationOffset, (ECPrivateKey) pair.getPrivate());
+    }
+
+    short PerformDHExchange(byte[] apdubuf, short cardPubKeyEphemOffset, short cardPubKeyEphemLength) {
+        return cryptoOps.PerformECDHExchange(apdubuf, cardPubKeyEphemOffset, cardPubKeyEphemLength);
+    }
+
+    short EncryptUsingAES(byte[] source, short sourceOffset, short dataLength, byte[] destination, short destinationOffset) {
+        return cryptoOps.EncryptUsingAES(source, sourceOffset, dataLength, destination, destinationOffset);
     }
 }

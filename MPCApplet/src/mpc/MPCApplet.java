@@ -8,6 +8,8 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 
 import mpc.jcmathlib.*;
+
+
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -171,6 +173,9 @@ public class MPCApplet extends Applet {
                     break;
                 case Consts.INS_DECRYPT:
                     DecryptData(apdu);
+                    break;
+                case Consts.INS_ECDH_EXCHANGE:
+                    PerformDHExchange(apdu);
                     break;
 
                 //    
@@ -654,6 +659,7 @@ public class MPCApplet extends Applet {
     
     /**
      * Distributed data decryption (Algorithm 4.5). All KeyGen_xxx must be executed before.
+     * 2B cipher length | xB cipher | 16B IV | 2B signature length | yB signature
      * @param apdu 
      */
     void DecryptData(APDU apdu) {
@@ -667,9 +673,36 @@ public class MPCApplet extends Applet {
         // Verify authorization - is caller allowed to ask for decryption? 
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_DecryptShare);
 
-        dataLen = quorumCtx.DecryptShare(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_DATA_OFFSET), dataLen, apdubuf);
-        // TODO: encrypt result under host public key and sign by card's key
+        byte[] encryptBuffer = new byte[256];
+        dataLen = quorumCtx.DecryptShare(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_DATA_OFFSET), dataLen, encryptBuffer);
+
+        dataLen = quorumCtx.EncryptUsingAES(encryptBuffer, (short) 0, dataLen, apdubuf, (short) 2);
+
+        // set the cipher size short
+        Util.setShort(apdubuf, (short) 0, dataLen);
+        dataLen += 2 + 16;
+
+        short sigLen = quorumCtx.signApdubuffer(apdubuf, (short) 0, dataLen, apdubuf, (short) (dataLen + 2));
+        Util.setShort(apdubuf, dataLen, sigLen);
+        dataLen += 2 + sigLen;
         apdu.setOutgoingAndSend((short) 0, dataLen);
+    }
+
+    /**
+     * 2B pubKey length | xB encoded pubKey
+     * @param apdu
+     */
+    void PerformDHExchange(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short paramsOffset = GetOperationParamsOffset(Consts.INS_ECDH_EXCHANGE, apdu);
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+
+        short dataLength = Util.getShort(apdubuf, (short) (paramsOffset + 5));
+        verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + 5 + 2 + dataLength));
+
+        short len = quorumCtx.PerformDHExchange(apdubuf, (short) (paramsOffset + 5 + 2), dataLength);
+        apdu.setOutgoingAndSend((short) 0, len);
+
     }
     
     /**
@@ -762,6 +795,7 @@ public class MPCApplet extends Applet {
 
         //apdu.setOutgoingAndSend((short) 0, len);
     }
+
 
     /**
      * Verifies packet signature signed by a host.
