@@ -111,7 +111,8 @@ public class StateModel {
                 if (requestedFnc == FNC_QuorumContext_DecryptShare)  return;                   
                 if (requestedFnc == FNC_QuorumContext_Sign_RetrieveRandomRi) return;                   
                 if (requestedFnc == FNC_QuorumContext_Sign)  return;                   
-                if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter)  return;                   
+                if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter)  return;
+                if (requestedFnc == FNC_QuorumContext_GenerateRandomData) return;
 
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
                 break;

@@ -133,6 +133,11 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
 
     @Override
+    public byte[] GenerateRandom(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey, short numOfBytes) throws Exception {
+        return quorums[quorumIndex].GenerateRandom(numOfBytes);
+    }
+
+    @Override
     public void disconnect() {
     }
 

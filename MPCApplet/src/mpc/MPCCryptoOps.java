@@ -522,4 +522,9 @@ public class MPCCryptoOps {
 
         return len;
     }
+
+    short GenerateRandom(byte[] apdubuf, short numOfBytes, short outputOffset) {
+        randomData.generateData(apdubuf, outputOffset, numOfBytes);
+        return numOfBytes;
+    }
 }

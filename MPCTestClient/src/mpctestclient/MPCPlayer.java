@@ -220,5 +220,18 @@ public interface MPCPlayer {
      */
     byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte hostIndex, PrivateKey hostPrivKey) throws Exception;
 
+
+    /**
+     * Sends a request for random byte array generation.
+     *
+     * @param quorumIndex quorum index
+     * @param hostIndex   host's index
+     * @param hostPrivKey hosts's private key used for packet signature
+     * @param numOfBytes  length of the requested array
+     * @return received random byte array
+     * @throws Exception if fails
+     */
+    byte[] GenerateRandom(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey, short numOfBytes) throws Exception;
+
     void disconnect();
 }

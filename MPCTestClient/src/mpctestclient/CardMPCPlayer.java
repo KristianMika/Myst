@@ -405,7 +405,7 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] responseData = response.getData();
         byte[] data = Arrays.copyOfRange(responseData, 0, 65);
         short sigLen = Util.getShort(responseData, 65);
-        byte[] signatue = Arrays.copyOfRange(responseData, 65 + 2, 65 + 2 + sigLen);
+        byte[] signature = Arrays.copyOfRange(responseData, 65 + 2, 65 + 2 + sigLen);
 
         quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(mpcGlobals.curve, data , 0);  // Store Pub
 
@@ -419,7 +419,7 @@ public class CardMPCPlayer implements MPCPlayer {
         QuorumContext thisQContext = quorumsCtxMap.get(quorumIndex);
 
         // verifies INS_KEYGEN_RETRIEVE_PUBKEY signature
-        if (!verifyECDSASignature(data, signatue, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
+        if (!verifyECDSASignature(data, signature, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
             quorumsCtxMap.get(quorumIndex).pubkeyObject = null;
             quorumsCtxMap.get(quorumIndex).pubKey = null;
             throw new SecurityException("Signature verification failed");
@@ -540,6 +540,34 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN, hostPrivKey, (byte) round, hostIndex, Util.concat(packetData, Util.concat(plaintext, Rn)));
         ResponseAPDU response = transmit(channel, cmd);
         return response.getData();
+    }
+
+    @Override
+    public byte[] GenerateRandom(short quorumIndex, byte hostIndex, PrivateKey hostPrivKey, short numOfBytes) throws Exception {
+        byte[] shared_secret = performDHExchange(quorumIndex, hostIndex, hostPrivKey);
+
+        byte[] packetData = preparePacketData(Consts.INS_GENERATE_RANDOM, quorumIndex, numOfBytes);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_GENERATE_RANDOM, hostPrivKey, (byte) 0x0, hostIndex, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
+
+        byte[] responseData = response.getData();
+        short cipherLen = Util.getShort(responseData, 0);
+        // TODO: USE CONSTANT VARIABLES FOR OFFSETS (WILL IMPLEMENT LATER)
+        short sigLen = Util.getShort(responseData, 2 + cipherLen + 16);
+        byte[] signature = Arrays.copyOfRange(responseData, 2 + cipherLen + 16 + 2, 2 + cipherLen + 16 + 2 + sigLen);
+        byte[] data = Arrays.copyOfRange(responseData, 0, 2 + cipherLen + 16);
+
+        if (!(verifyECDSASignature(data, signature, quorumsCtxMap.get(quorumIndex).pubkeyObject))) {
+            throw new GeneralSecurityException("Bogus packet signature.");
+        }
+
+        byte[] decryptedResp = decryptAes(data, shared_secret);
+
+        if (!(Util.getShort(decryptedResp, 0) == numOfBytes)) {
+            throw new GeneralSecurityException("First 2 bytes are not equal to the requested byte array size");
+        }
+
+        return Arrays.copyOfRange(decryptedResp, 2, decryptedResp.length);
     }
 
     private boolean checkSW(ResponseAPDU response) {

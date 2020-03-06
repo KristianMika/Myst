@@ -435,6 +435,11 @@ public class QuorumContext {
         }
     }
 
+    short GenerateRandom(byte[] apdubuf, short numOfBytes, short outputOffset) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GenerateRandomData);
+        return cryptoOps.GenerateRandom(apdubuf, numOfBytes, outputOffset);
+    }
+
     short signApdubuffer(byte[] apdubuf, short offset, short payloadLength) {
         return cryptoOps.computeECDSASignature(apdubuf, offset, payloadLength, apdubuf, (short) (offset + payloadLength), (ECPrivateKey) pair.getPrivate());
     }

@@ -89,6 +89,7 @@ public class HostACL {
             case StateModel.FNC_QuorumContext_SetupNew:
             case StateModel.FNC_QuorumContext_Reset:
             case StateModel.FNC_QuorumContext_GetState:
+            case StateModel.FNC_QuorumContext_GenerateRandomData:
                 if ((permissions & ACL_QUORUM_MANAGEMENT) != 0) return;
                 ISOException.throwIt(Consts.SW_HOSTNOTALLOWED); // if reached, host is not allowed to perform this operation
 

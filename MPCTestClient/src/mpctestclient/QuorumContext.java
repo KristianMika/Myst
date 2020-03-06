@@ -37,6 +37,7 @@ public class QuorumContext {
     private MPCGlobals mpcGlobals;
     private Player[] players;
     private StateModel state;
+
     public QuorumContext(MPCGlobals mpcGlobals) throws StateModel.StateException {
         this.mpcGlobals = mpcGlobals;
 
@@ -381,6 +382,19 @@ public class QuorumContext {
         ECPoint c1 = Util.ECPointDeSerialization(mpcGlobals.curve, ciphertext, 0);
         ECPoint xc1_share = c1.multiply(priv_key_BI);
         return xc1_share.getEncoded(false);
+    }
+
+    /**
+     * Generates a byte array of random bytes
+     *
+     * @param length length of the byte array
+     * @return a random byte array
+     */
+    public byte[] GenerateRandom(short length) {
+        byte[] randomBytes = new byte[length];
+        SecureRandom random = new SecureRandom();
+        random.nextBytes(randomBytes);
+        return randomBytes;
     }
 
     /**

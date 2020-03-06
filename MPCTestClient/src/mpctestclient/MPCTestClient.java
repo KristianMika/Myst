@@ -210,6 +210,11 @@ public class MPCTestClient {
              System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed,  elapsed / (float) runCfg.numSingleOpRepeats);
              */
 
+            //
+            // Generate random byte array
+            //
+            GenerateRandom(mpcGlobals.players, 57);
+
             System.out.print("Disconnecting from card...");
             for (MPCPlayer player : mpcGlobals.players) {
                 player.disconnect();
@@ -345,6 +350,11 @@ public class MPCTestClient {
             //
             PerformSignCache(mpcGlobals.players, perfResults, perfFile);
             PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, perfResults, perfFile, runCfg);
+
+            //
+            // Generate random byte array
+            //
+            GenerateRandom(mpcGlobals.players, 57);
 
             System.out.print("Disconnecting from card...");
             for (MPCPlayer player : mpcGlobals.players) {
@@ -623,6 +633,19 @@ public class MPCTestClient {
 
         // compare ev with e
         return e_bi.compareTo(ev_bi) == 0;
+    }
+
+    public static boolean GenerateRandom(ArrayList<MPCPlayer> playersList, int size) throws Exception {
+        System.out.println("\nGenerate Random (" + size + "B)\n");
+        for (MPCPlayer player : playersList) {
+
+            byte[] receivedByteArray = player.GenerateRandom(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject, (short) size);
+            String operationName = "Generating random byte array(INS_GENERATE_RANDOM)";
+            System.out.format(format, operationName, Util.bytesToHex(receivedByteArray) + "\nsuccessful?        :"
+                    + (receivedByteArray.length == size));
+            assertIfSelected(receivedByteArray.length == size);
+        }
+        return true;
     }
 
 
