@@ -794,7 +794,7 @@ public class MPCApplet extends Applet {
         verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 3 * Consts.PACKET_SHORT_PARAM_LENGTH));
         short numOfBytes = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_BYTE_PARAM_LENGTH + 2 * Consts.PACKET_SHORT_PARAM_LENGTH ));
 
-        byte[] encr_buffer = new byte[2 + numOfBytes];
+        byte[] encr_buffer = new byte[(short) (2 + numOfBytes)];
         short len = quorumCtx.GenerateRandom(encr_buffer, numOfBytes, (short) 2);
 
         Util.setShort(encr_buffer, (short) 0, len);
