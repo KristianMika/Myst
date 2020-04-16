@@ -303,9 +303,17 @@ public class CardMPCPlayer implements MPCPlayer {
         ResponseAPDU response = transmit(channel, cmd);
         byte[] responseData = response.getData();
 
-        // reconstruct the card's public key
         short keyLength = Util.getShort(responseData, 0);
-        byte[] receivedPubKey = Arrays.copyOfRange(responseData, 2, 2 + keyLength);
+        short sigLen = Util.getShort(responseData, 2 + keyLength);
+        // verify signature
+        byte[] signature = Arrays.copyOfRange(responseData, 2 + keyLength + 2, 2 + keyLength + 2 + sigLen);
+        byte[] data = Arrays.copyOfRange(responseData, 0, 2 + keyLength);
+        if (!verifyECDSASignature(data, signature, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
+            throw new SecurityException("Signature verification failed");
+        }
+
+        // reconstruct the card's public key
+        byte[] receivedPubKey = Arrays.copyOfRange(data, 2, 2 + keyLength);
         ECPoint receivedECPoint = Util.ECPointDeSerialization(mpcGlobals.curve, receivedPubKey, 0);  // Store Pub
 
         BigInteger x = receivedECPoint.normalize().getXCoord().toBigInteger();

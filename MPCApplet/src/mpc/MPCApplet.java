@@ -704,8 +704,10 @@ public class MPCApplet extends Applet {
         verifySignature(apdubuf, quorumCtx, (short) (paramsOffset + 5 + 2 + dataLength));
 
         short len = quorumCtx.PerformDHExchange(apdubuf, (short) (paramsOffset + 5 + 2), dataLength);
+        short sigLen = quorumCtx.signApdubuffer(apdubuf, (short) 0, len, apdubuf, (short) (len + 2));
+        Util.setShort(apdubuf, len, sigLen);
+        len += 2 + sigLen;
         apdu.setOutgoingAndSend((short) 0, len);
-
     }
     
     /**
