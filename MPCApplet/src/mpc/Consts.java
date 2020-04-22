@@ -91,19 +91,21 @@ public class Consts {
     public static final short SW_INCORRECTJCMATHLIBSETTINGS     = (short) 0x8012;
     public static final short SW_TOOMANYHOSTS                   = (short) 0x8013;
     public static final short SW_HOSTNOTALLOWED                 = (short) 0x8014;
-    public static final short SW_INVALID_HOST_INDEX             = (short) 0x8014;
+    public static final short SW_INVALID_HOST_id                = (short) 0x8014;
     public static final short SW_INVALID_PACKET_SIGNATURE       = (short) 0x8015;
     public static final short SW_HOST_NOT_INITIALISED           = (short) 0x8016;
     public static final short SW_HOST_ALREADY_INITIALISED       = (short) 0x8017;
     public static final short SW_DH_EXCHANGE_SKIPPED            = (short) 0x8018;
+    public static final short SW_DUPLICATE_HOST_ID              = (short) 0x8019;
 
     
             
     public static final short SIGN_COUNTER_LENGTH = (short) 2;
-    public static final short APDU_HOST_INDEX = (short) 3;
     public static final short PACKET_SIZE_OFFSET = (short) 4;
-    public static final short PACKET_SHORT_PARAM_LENGTH = (short) 2;
-    public static final short PACKET_BYTE_PARAM_LENGTH = (short) 1;
+    public static final short SHORT_SIZE = (short) 2;
+    public static final short BYTE_SIZE = (short) 1;
+    public static final short HOST_ID_SIZE = 4;
+
     
     
     public static final short PACKET_PARAMS_OPCODE_OFFSET = (short) 0;
@@ -113,14 +115,41 @@ public class Consts {
     // SetupNewQuorum params
     public static final short PACKET_PARAMS_SETUPNEWQUORUM_NUMPLAYERS_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SETUPNEWQUORUM_THISPLAYERINDEX_OFFSET = (short) (PACKET_PARAMS_SETUPNEWQUORUM_NUMPLAYERS_OFFSET + 2);
+    public static final short PACKET_PARAMS_SETUPNEWQUORUM_HOSTID_OFFSET = (short) (PACKET_PARAMS_SETUPNEWQUORUM_THISPLAYERINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_SETUPNEWQUORUM_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_SETUPNEWQUORUM_HOSTID_OFFSET + HOST_ID_SIZE);
+    // RemoveQuorum params
+    public static final short PACKET_PARAMS_REMOVEQUORUM_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_REMOVEQUORUM_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_REMOVEQUORUM_HOSTID_OFFSET + HOST_ID_SIZE);
+    // QuorumReset params
+    public static final short PACKET_PARAMS_QUORUMRESET_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_QUORUMRESET_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_QUORUMRESET_HOSTID_OFFSET + HOST_ID_SIZE);
+    // PersonaliseSetUserAuthPubkey
+    public static final short PACKET_PARAMS_SETUSERAUTHPUBKEY_PERM_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_SETUSERAUTHPUBKEY_HOSTID_OFFSET = (short) (PACKET_PARAMS_SETUSERAUTHPUBKEY_PERM_OFFSET + 2);
+    public static final short PACKET_PARAMS_SETUSERAUTHPUBKEY_PUBKEY_OFFSET = (short) (PACKET_PARAMS_SETUSERAUTHPUBKEY_HOSTID_OFFSET + HOST_ID_SIZE);
+    public static final short PACKET_PARAMS_SETUSERAUTHPUBKEY_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_SETUSERAUTHPUBKEY_PUBKEY_OFFSET + 65);
+    // KeyGen_Init
+    public static final short PACKET_PARAMS_KEYGENINIT_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_KEYGENINIT_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_KEYGENINIT_HOSTID_OFFSET + HOST_ID_SIZE);
+    // KeyGen_RetrieveCommitment
+    public static final short PACKET_PARAMS_RETRIEVECOMMITMENT_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_RETRIEVECOMMITMENT_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVECOMMITMENT_HOSTID_OFFSET + HOST_ID_SIZE);
     // KeyGen_StoreCommitment params
     public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_PLAYERID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENTLENGTH_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_PLAYERID_OFFSET + 2);
-    public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENT_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENTLENGTH_OFFSET + 2);
+    public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_HOSTID_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENTLENGTH_OFFSET + 2);
+    public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENT_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_HOSTID_OFFSET + HOST_ID_SIZE);
+    //KeyGen_RetrievePublicKey
+    public static final short PACKET_PARAMS_RETRIEVEPUBKEY_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_RETRIEVEPUBKEY_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVEPUBKEY_HOSTID_OFFSET + HOST_ID_SIZE);
     // KeyGen_StorePublicKey params
     public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_PLAYERID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEYLENGTH_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_PLAYERID_OFFSET + 2);
-    public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEY_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEYLENGTH_OFFSET + 2);
+    public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_HOSTID_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEYLENGTH_OFFSET + 2);
+    public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEY_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_HOSTID_OFFSET + HOST_ID_SIZE);
+    // KeyGen_RetrieveAggregatedPublicKey
+    public static final short PACKET_PARAMS_RETRIEVEYAGG_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_RETRIEVEYAGG_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVEYAGG_HOSTID_OFFSET + HOST_ID_SIZE);
     // EncryptData params
     public static final short PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_ENCRYPT_DATA_OFFSET = (short) (PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET + 2);
@@ -172,6 +201,7 @@ public class Consts {
     public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry  
     public static final short PUBKEY_YS_SHARE_SIZE = SHARE_DOUBLE_SIZE_CARRY;    // double intermediate result + 1 byte carry  
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
+    public static final short HOST_BLOCK_SIZE = HOST_ID_SIZE + SHARE_DOUBLE_SIZE;
     
     public static final short MAX_QUORUMS = 1; // Maximum number of separate quorums this card can participate in
     

@@ -35,16 +35,17 @@ public class MPCTestClient {
     public final static boolean _FIXED_PLAYERS_RNG = false;
 
     public final static short QUORUM_INDEX = 0;
-    public static final byte THIS_HOST_ID = 3; // host's ID, must be in <0, Consts.MAX_NUM_HOSTS)
+    public static final int HOST_COUNT = 2;
     //public static byte[] APDU_RESET = {(byte) 0xB0, (byte) 0x03, (byte) 0x00, (byte) 0x00};
     public static final byte[] PERF_COMMAND_NONE = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
     public final static boolean MODIFY_SOURCE_FILES_BY_PERF = true;
     static final String PERF_TRAP_CALL = "PM.check(PM.";
     static final String PERF_TRAP_CALL_END = ");";
+    public static List<HostObj> hosts;
     // Objects
     public static String format = "%-40s:%s%n\n-------------------------------------------------------------------------------\n";
     // acl of this host
-    public static short[] hostPermissions = new short[]{HostACL.ACL_FULL_PRIVILEGES}; // {HostACL.ACL_KEY_GENERATION, HostACL.ACL_QUORUM_MANAGEMENT, HostACL.ACL_ENCRYPT, HostACL.ACL_DECRYPT};
+
     public static HashMap<Short, String> PERF_STOP_MAPPING = new HashMap<>();
     public static byte[] PERF_COMMAND = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
     // Crypto-objects
@@ -53,10 +54,7 @@ public class MPCTestClient {
     // Performance testing variables
     static ArrayList<Map.Entry<String, Long>> perfResults = new ArrayList<>();
     static Long m_lastTransmitTime = 0L;
-    // Host's keys
-    private static BigInteger hostPrivateKey;
-    private static ECPoint hostPublicKey;
-    private static PrivateKey hostPrivateKeyObject;
+
     // end Performance testing variables
 
     /**
@@ -107,8 +105,10 @@ public class MPCTestClient {
         // Prepare SecP256r1 curve
         prepareECCurve(mpcGlobals);
 
-        // Generate host's keypair
-        hostKeyGen();
+        // Create list of hosts and grant them privileges
+        hosts = new ArrayList<HostObj>();
+        hosts.add(new HostObj(new short[]{HostACL.ACL_FULL_PRIVILEGES}));
+        hosts.add(new HostObj(new short[]{HostACL.ACL_KEY_GENERATION}));
 
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
@@ -127,7 +127,7 @@ public class MPCTestClient {
                 cardPlayer.SetBackdoorExample(channel, true);
             }
             // Retrieve card information
-            cardPlayer.GetCardInfo(THIS_HOST_ID);
+            cardPlayer.GetCardInfo();
             mpcGlobals.players.add(cardPlayer);
             cardID++;
         }
@@ -150,33 +150,38 @@ public class MPCTestClient {
             for (MPCPlayer player : mpcGlobals.players) {
                 // Reset
                 String operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
                 // Setup
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                // store host's pubkey
+                operationName = "Set the host's authorisation pubkey (INS_PERSONALIZE_SET_USER_AUTH_PUBKEY)";
+                System.out.format(format, operationName, player.SetHostAuthPubkey(hosts.get(0).publicKey, hosts.get(0).permissions,
+                        QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
 
                 // Remove
                 operationName = "Removing quorum (INS_QUORUM_RESET)";
-                System.out.format(format, operationName, player.Remove(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.Remove(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
                 // Reset
                 operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
                 // Setup again
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
-                // store hosts' pubkeys
+                // store host's pubkey
                 operationName = "Set the host's authorisation pubkey (INS_PERSONALIZE_SET_USER_AUTH_PUBKEY)";
-                System.out.format(format, operationName, player.SetHostAuthPubkey(hostPublicKey, compressACL(hostPermissions),
-                        QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.SetHostAuthPubkey(hosts.get(0).publicKey, hosts.get(0).permissions,
+                        QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
 
                 playerIndex++;
             }
@@ -214,6 +219,14 @@ public class MPCTestClient {
             // Generate random byte array
             //
             GenerateRandom(mpcGlobals.players, 57);
+
+            // Reset cards
+            for (MPCPlayer player : mpcGlobals.players) {
+                // Reset
+                String operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+            }
 
             System.out.print("Disconnecting from card...");
             for (MPCPlayer player : mpcGlobals.players) {
@@ -264,8 +277,10 @@ public class MPCTestClient {
         // Prepare SecP256r1 curve
         prepareECCurve(mpcGlobals);
 
-        // Generate host's keypair
-        hostKeyGen();
+        // Create list of hosts and grant them privileges
+        hosts = new ArrayList<HostObj>();
+        hosts.add(new HostObj(new short[]{HostACL.ACL_FULL_PRIVILEGES}));
+        hosts.add(new HostObj(new short[]{HostACL.ACL_KEY_GENERATION}));
 
         // Obtain list of all connected MPC cards
         System.out.print("Connecting to MPC cards...");
@@ -284,7 +299,7 @@ public class MPCTestClient {
                 cardPlayer.SetBackdoorExample(channel, true);
             }
             // Retrieve card information
-            cardPlayer.GetCardInfo(THIS_HOST_ID);
+            cardPlayer.GetCardInfo();
             mpcGlobals.players.add(cardPlayer);
             cardID++;
         }
@@ -307,34 +322,41 @@ public class MPCTestClient {
             for (MPCPlayer player : mpcGlobals.players) {
                 // Reset
                 String operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
                 // Setup
                 operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, THIS_HOST_ID, hostPrivateKeyObject));
-                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-                // Remove
-                operationName = "Removing quorum (INS_QUORUM_RESET)";
-                System.out.format(format, operationName, player.Remove(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
-                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-                // Reset
-                operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
-                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-                // Setup again
-                operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
                 // store hosts' pubkeys
                 // list of host's permissions that will be stored in card's ACL list
                 operationName = "Set the host's authorisation pubkey (INS_PERSONALIZE_SET_USER_AUTH_PUBKEY)";
-                System.out.format(format, operationName, player.SetHostAuthPubkey(hostPublicKey, compressACL(hostPermissions),
-                        QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+                System.out.format(format, operationName, player.SetHostAuthPubkey(hosts.get(0).publicKey, hosts.get(0).permissions,
+                        QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
+
+                // Remove
+                operationName = "Removing quorum (INS_QUORUM_RESET)";
+                System.out.format(format, operationName, player.Remove(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                // Reset
+                operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                // Setup again
+                operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                // store hosts' pubkeys
+                // list of host's permissions that will be stored in card's ACL list
+                operationName = "Set the host's authorisation pubkey (INS_PERSONALIZE_SET_USER_AUTH_PUBKEY)";
+                System.out.format(format, operationName, player.SetHostAuthPubkey(hosts.get(0).publicKey, hosts.get(0).permissions,
+                        QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
+
                 playerIndex++;
             }
 
@@ -355,6 +377,14 @@ public class MPCTestClient {
             // Generate random byte array
             //
             GenerateRandom(mpcGlobals.players, 57);
+
+            // Reset cards
+            for (MPCPlayer player : mpcGlobals.players) {
+                // Reset
+                String operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+            }
 
             System.out.print("Disconnecting from card...");
             for (MPCPlayer player : mpcGlobals.players) {
@@ -414,13 +444,13 @@ public class MPCTestClient {
         for (MPCPlayer player : playersList) {
             // Generate KeyPair in card
             String operationName = "Generate KeyPair (INS_KEYGEN_INIT)";
-            System.out.format(format, operationName, player.GenKeyPair(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+            System.out.format(format, operationName, player.GenKeyPair(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
 
             // Retrieve Hash from card
             operationName = "Retrieve Hash of pub key (INS_KEYGEN_RETRIEVE_HASH)";
-            System.out.format(format, operationName, player.RetrievePubKeyHash(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+            System.out.format(format, operationName, player.RetrievePubKeyHash(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
@@ -430,7 +460,7 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : playersList) {
             for (MPCPlayer playerSource : playersList) {
                 if (playerTarget != playerSource) {
-                    System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX), THIS_HOST_ID, hostPrivateKeyObject));
+                    System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX), hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
                 }
@@ -440,7 +470,7 @@ public class MPCTestClient {
         // Retrieve card's Public Key
         for (MPCPlayer player : playersList) {
             operationName = "Retrieve Pub Key (INS_KEYGEN_RETRIEVE_PUBKEY)";
-            ECPoint pub_share_EC = Util.ECPointDeSerialization(mpcGlobals.curve, player.RetrievePubKey(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject, mpcGlobals), 0);
+            ECPoint pub_share_EC = Util.ECPointDeSerialization(mpcGlobals.curve, player.RetrievePubKey(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject, mpcGlobals), 0);
             System.out.format(format, operationName, Util.bytesToHex(pub_share_EC.getEncoded(false)));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
@@ -451,7 +481,7 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : playersList) {
             for (MPCPlayer playerSource : playersList) {
                 if (playerTarget != playerSource) {
-                    System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false), THIS_HOST_ID, hostPrivateKeyObject));
+                    System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false), hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
                 }
@@ -462,7 +492,7 @@ public class MPCTestClient {
         boolean bFirstPlayer = true;
         for (MPCPlayer player : playersList) {
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
-            System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject));
+            System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
             if (bFirstPlayer) {
                 mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX);
                 bFirstPlayer = false;
@@ -493,7 +523,7 @@ public class MPCTestClient {
             plaintext = mpcGlobals.G.multiply(msgToEncDec).getEncoded(false);
             operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString());
             //ciphertext = player.Encrypt(QUORUM_INDEX, plaintext, runCfg, _PROFILE_PERFORMANCE);
-            ciphertext = player.Encrypt(QUORUM_INDEX, plaintext, THIS_HOST_ID, hostPrivateKeyObject);
+            ciphertext = player.Encrypt(QUORUM_INDEX, plaintext, hosts.get(0).host_id, hosts.get(0).privateKeyObject);
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
@@ -512,7 +542,7 @@ public class MPCTestClient {
             for (MPCPlayer player : mpcGlobals.players) {
                 //System.out.printf("\n");
                 operationName = "Decrypt (INS_DECRYPT)";
-                byte[] xc1_share = player.Decrypt(QUORUM_INDEX, ciphertext, THIS_HOST_ID, hostPrivateKeyObject);
+                byte[] xc1_share = player.Decrypt(QUORUM_INDEX, ciphertext, hosts.get(0).host_id, hosts.get(0).privateKeyObject);
                 xc1_EC = xc1_EC.add(Util.ECPointDeSerialization(mpcGlobals.curve, xc1_share, 0).negate()); // combine share from player
 
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
@@ -550,10 +580,10 @@ public class MPCTestClient {
             boolean bFirstPlayer = true;
             for (MPCPlayer player : playersList) {
                 if (bFirstPlayer) {
-                    mpcGlobals.Rands[round - 1] = Util.ECPointDeSerialization(mpcGlobals.curve, player.Gen_Rin(QUORUM_INDEX, round, THIS_HOST_ID, hostPrivateKeyObject), 0);
+                    mpcGlobals.Rands[round - 1] = Util.ECPointDeSerialization(mpcGlobals.curve, player.Gen_Rin(QUORUM_INDEX, round, hosts.get(0).host_id, hosts.get(0).privateKeyObject), 0);
                     bFirstPlayer = false;
                 } else {
-                    mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(Util.ECPointDeSerialization(mpcGlobals.curve, player.Gen_Rin(QUORUM_INDEX, round, THIS_HOST_ID, hostPrivateKeyObject), 0));
+                    mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(Util.ECPointDeSerialization(mpcGlobals.curve, player.Gen_Rin(QUORUM_INDEX, round, hosts.get(0).host_id, hosts.get(0).privateKeyObject), 0));
                 }
             }
         }
@@ -585,11 +615,11 @@ public class MPCTestClient {
             boolean bFirstPlayer = true;
             for (MPCPlayer player : playersList) {
                 if (bFirstPlayer) {
-                    sum_s_BI = player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig, THIS_HOST_ID, hostPrivateKeyObject);
+                    sum_s_BI = player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig, hosts.get(0).host_id, hosts.get(0).privateKeyObject);
                     card_e_BI = player.GetE(QUORUM_INDEX);
                     bFirstPlayer = false;
                 } else {
-                    sum_s_BI = sum_s_BI.add(player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig, THIS_HOST_ID, hostPrivateKeyObject));
+                    sum_s_BI = sum_s_BI.add(player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig, hosts.get(0).host_id, hosts.get(0).privateKeyObject));
                     sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
                 }
             }
@@ -639,7 +669,7 @@ public class MPCTestClient {
         System.out.println("\nGenerate Random (" + size + "B)\n");
         for (MPCPlayer player : playersList) {
 
-            byte[] receivedByteArray = player.GenerateRandom(QUORUM_INDEX, THIS_HOST_ID, hostPrivateKeyObject, (short) size);
+            byte[] receivedByteArray = player.GenerateRandom(QUORUM_INDEX, hosts.get(0).host_id, hosts.get(0).privateKeyObject, (short) size);
             String operationName = "Generating random byte array(INS_GENERATE_RANDOM)";
             System.out.format(format, operationName, Util.bytesToHex(receivedByteArray) + "\nsuccessful?        :"
                     + (receivedByteArray.length == size));
@@ -691,20 +721,6 @@ public class MPCTestClient {
             aclShort = (short) (aclShort | permission);
         }
         return aclShort;
-    }
-
-    /**
-     * Generates this host's secrets
-     */
-    public static void hostKeyGen() throws NoSuchProviderException, NoSuchAlgorithmException, InvalidKeySpecException {
-        SecureRandom random = new SecureRandom();
-        hostPrivateKey = new BigInteger(256, random);
-        hostPublicKey = mpcGlobals.G.multiply(hostPrivateKey);
-        KeyFactory keyFactory = KeyFactory.getInstance("EC", "BC");
-        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-        org.bouncycastle.jce.spec.ECParameterSpec spec = ECNamedCurveTable.getParameterSpec("SecP256r1");
-        ECPrivateKeySpec ecPrivateKeySpec = new ECPrivateKeySpec(hostPrivateKey, spec);
-        hostPrivateKeyObject = keyFactory.generatePrivate(ecPrivateKeySpec);
     }
 
     private static byte[] ECPointSerialization(ECPoint apoint) {
@@ -924,6 +940,34 @@ public class MPCTestClient {
             fileOut.close();
         } catch (Exception e) {
             System.out.println(String.format("Failed to transform file %s ", filePath) + e);
+        }
+    }
+
+    static class HostObj {
+        public byte[] host_id;
+        public short permissions;
+        public BigInteger privateKey;
+        public ECPoint publicKey;
+        public PrivateKey privateKeyObject;
+
+        HostObj(short[] permissions) throws Exception {
+            this.permissions = compressACL(permissions);
+            generateKeys();
+            host_id = Arrays.copyOfRange(publicKey.getEncoded(false), 0, 4);
+        }
+
+        void generateKeys() throws NoSuchProviderException, NoSuchAlgorithmException, InvalidKeySpecException {
+            SecureRandom random = new SecureRandom();
+
+            privateKey = new BigInteger(256, random);
+            publicKey = mpcGlobals.G.multiply(privateKey);
+
+            KeyFactory keyFactory = KeyFactory.getInstance("EC", "BC");
+            Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+            org.bouncycastle.jce.spec.ECParameterSpec spec = ECNamedCurveTable.getParameterSpec("SecP256r1");
+            ECPrivateKeySpec ecPrivateKeySpec = new ECPrivateKeySpec(privateKey, spec);
+
+            privateKeyObject = keyFactory.generatePrivate(ecPrivateKeySpec);
         }
     }
 

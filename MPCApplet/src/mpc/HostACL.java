@@ -63,7 +63,9 @@ public class HostACL {
         setPubkeyValid();
     }
 
-
+    public void VerifyCallerAuthorization(short requestedFnc) {
+    VerifyCallerAuthorization(requestedFnc, this.permissions);
+    }
     /**
      * Verify if caller is authorized to submit request for given operation
      * Groups of functions can be customised sa that each host has only the privileges he really needs:
@@ -73,7 +75,7 @@ public class HostACL {
      *
      * @param requestedFnc function to be checked
      */
-    public void VerifyCallerAuthorization(short requestedFnc) {
+    public void VerifyCallerAuthorization(short requestedFnc, short permissions) {
 
         // comparing requested function against ACL
         if (permissions == ACL_FULL_PRIVILEGES) {

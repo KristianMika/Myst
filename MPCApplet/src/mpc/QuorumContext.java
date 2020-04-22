@@ -6,6 +6,7 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.ECPrivateKey;
 import javacard.security.ECPublicKey;
+import javacard.security.KeyBuilder;
 import javacard.security.KeyPair;
 import mpc.jcmathlib.*;
 
@@ -43,10 +44,14 @@ public class QuorumContext {
 
     private StateModel state = null; // current state of the protocol run - some operations are not available in given state    
 
-    // ACL
-    private HostACL[] hostsACLs;
-    private short numOfHosts;
-    private boolean acl_provided = false;
+    private byte[] hosts;
+    short host_count;
+    private ECPublicKey[] host_pub_obj;
+
+    private HostACL acl = new HostACL();
+
+
+
     
     public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOps cryptoOperations) {
         cryptoOps = cryptoOperations;
@@ -68,34 +73,62 @@ public class QuorumContext {
             }
         }
 
+        hosts = new byte[(short) (Consts.MAX_NUM_HOSTS * (Consts.PUBKEY_YS_SHARE_SIZE + 2))];
+        host_pub_obj = new ECPublicKey[Consts.MAX_NUM_HOSTS];
+
+
+        for (short i = 0; i < Consts.MAX_NUM_HOSTS;i++) {
+            host_pub_obj[i] = null;
+         }
+
+
         Y_EC_onTheFly = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
         Y_EC_onTheFly.initializeECPoint_SecP256r1();
 
         state = new StateModel();
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
 
-        hostsACLs = new HostACL[Consts.MAX_NUM_HOSTS];
-        for (short i=0; i < hostsACLs.length; i++) {
-            hostsACLs[i] = new HostACL();
-        }
-        numOfHosts = 0;
     }
 
-    public void SetUserAuthPubkey(byte[] userPubkey, short pubkeyOffset, short acl, byte hostIndex){
-        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetUserPubKey);
+    public void SetUserAuthPubkey(byte[] apdbuf, short pubkeyOffset, short aclOffset) {
+        //state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetUserPubKey);
+
+        // store host's info
+        if (FindHost(apdbuf, pubkeyOffset) != -1) {
+            throw new ISOException(Consts.SW_DUPLICATE_HOST_ID);
+        }
 
         // check for number of number of hosts
-        if (numOfHosts >= Consts.MAX_NUM_HOSTS) {
+        if (host_count >= Consts.MAX_NUM_HOSTS) {
             ISOException.throwIt(Consts.SW_TOOMANYHOSTS);
         }
 
-        // check for host's index
-        if (hostIndex < 0 || hostIndex >= Consts.MAX_NUM_HOSTS || hostsACLs[hostIndex].isPubkeyIsValid()) {
-            ISOException.throwIt(Consts.SW_INVALID_HOST_INDEX);
+        short offset = (short) (host_count * (Consts.HOST_BLOCK_SIZE));
+        Util.arrayCopyNonAtomic(apdbuf, pubkeyOffset, hosts, offset, Consts.PUBKEY_YS_SHARE_SIZE);
+        Util.arrayCopyNonAtomic(apdbuf, aclOffset, hosts, (short) (offset + Consts.PUBKEY_YS_SHARE_SIZE), (short) (2));
+
+        host_pub_obj[host_count] = (ECPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, false);
+        host_pub_obj[host_count].setW(apdbuf, pubkeyOffset, Consts.PUBKEY_YS_SHARE_SIZE);
+        host_count++;
+
+    }
+
+    public short FindHost(byte[] src, short id_offset) {
+        for(short player = 0; player < host_count;player++) {
+            short eq = 0;
+            for(short off = 0; off < Consts.HOST_ID_SIZE;off++) {
+                if(hosts[(short)(Consts.HOST_BLOCK_SIZE * player + off)] != src[id_offset + off]) {
+                    break;
+                }
+                eq++;
+            }
+            if (eq == Consts.HOST_ID_SIZE) {return player;}
         }
-        numOfHosts++;
-        acl_provided = true;
-        hostsACLs[hostIndex].SetUserAuthPubkey(userPubkey, pubkeyOffset, acl);
+        return -1;
+    }
+
+    public short GetHostPermissions(short index) {
+        return Util.getShort(hosts, (short) (index * Consts.HOST_BLOCK_SIZE + Consts.PUBKEY_YS_SHARE_SIZE));
     }
 
     public void SetupNew(short numPlayers, short thisPlayerIndex) {
@@ -114,13 +147,14 @@ public class QuorumContext {
         this.NUM_PLAYERS = numPlayers;
         this.CARD_INDEX_THIS = thisPlayerIndex;
 
+
         cryptoOps.randomData.generateData(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
         if (Consts.IS_BACKDOORED_EXAMPLE) {
             Util.arrayFillNonAtomic(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
 
         // TODO: store and setup user authorization keys (if provided)
-        
+
         // Set state
         state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
         state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
@@ -129,6 +163,13 @@ public class QuorumContext {
     public void Reset() {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
         Invalidate(true);
+
+        for (short i = 0; i < Consts.MAX_NUM_HOSTS;i++) {
+            host_pub_obj[i] = null;
+        }
+        host_count = 0;
+        // TODO: clear hosts array
+
         // Restore proper value of modulo_Bn (was possibly erased during the card's reset)
         cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
         cryptoOps.aBn.set_from_byte_array((short) (cryptoOps.aBn.length() - (short) MPCCryptoOps.r_for_BigInteger.length), MPCCryptoOps.r_for_BigInteger, (short) 0, (short) MPCCryptoOps.r_for_BigInteger.length);
@@ -150,7 +191,7 @@ public class QuorumContext {
     public void InitAndGenerateKeyPair(boolean bPrepareDecryption) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
 
-        // Invalidate previously generated keypair  
+        // Invalidate previously generated keypair
         Invalidate(false);
 
         state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
@@ -354,7 +395,6 @@ public class QuorumContext {
             cryptoOps.randomData.generateData(x_i_Bn, (short) 0, (short) x_i_Bn.length);
             cryptoOps.randomData.generateData(signature_secret_seed, (short) 0, (short) signature_secret_seed.length);
             cryptoOps.randomData.generateData(this_card_Ys, (short) 0, (short) this_card_Ys.length);
-            
         }
         // Invalidate all items
         for (short i = 0; i < Consts.MAX_NUM_PLAYERS; i++) {
@@ -366,7 +406,6 @@ public class QuorumContext {
         }
 
         // TODO: clear Y_EC_onTheFly
-        
 
         Y_EC_onTheFly_shares_count = 0;
         num_commitments_count = 0;
@@ -408,32 +447,19 @@ public class QuorumContext {
     }
 
 
-    public void VerifyCallerAuthorization(APDU apdu, short requestedFnc) {
-        byte[] apduBuffer = apdu.getBuffer();
-        byte hostIndex = apduBuffer[Consts.APDU_HOST_INDEX];
-
-        // check for host's index
-        if (hostIndex < 0 || hostIndex >= Consts.MAX_NUM_HOSTS) {
-            ISOException.throwIt(Consts.SW_INVALID_HOST_INDEX);
-        }
-
-        // in case no ACL was provided - also used for operations that are executed before storing ACL
-        if (acl_provided) {
-            hostsACLs[hostIndex].VerifyCallerAuthorization(requestedFnc);
-        }
+    public void VerifyCallerAuthorization(short requestedFnc, short host_id_off) {
+        acl.VerifyCallerAuthorization(requestedFnc, GetHostPermissions(host_id_off));
     }
 
-    void VerifyPacketSignature(byte[] apdubuf, byte hostIndex, short signatureOffset, short signatureLength, short dataOffset, short dataLength) {
-        // check for host's index
-        if (hostIndex >= Consts.MAX_NUM_HOSTS) {
-            ISOException.throwIt(Consts.SW_INVALID_HOST_INDEX);
-        }
 
-        if (acl_provided) {
-            ECPublicKey pubkey = hostsACLs[hostIndex].getPubkeyEC();
-            cryptoOps.VerifyECDSASignature(apdubuf, signatureOffset, signatureLength, dataOffset, dataLength, pubkey);
+    void VerifyPacketSignature(byte[] apdubuf, short hostIdOff , short sifOff, short sigLen, short dataOff, short dataLen){
+        short host_i = FindHost(apdubuf, hostIdOff);
+        if (host_i == -1) {
+            ISOException.throwIt(Consts.SW_INVALID_HOST_id);
         }
+        cryptoOps.VerifyECDSASignature(apdubuf, sifOff, sigLen, dataOff, dataLen, host_pub_obj[host_i]);
     }
+
 
     short GenerateRandom(byte[] apdubuf, short numOfBytes, short outputOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GenerateRandomData);
