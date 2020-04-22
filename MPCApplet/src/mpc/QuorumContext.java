@@ -117,7 +117,7 @@ public class QuorumContext {
         for(short player = 0; player < host_count;player++) {
             short eq = 0;
             for(short off = 0; off < Consts.HOST_ID_SIZE;off++) {
-                if(hosts[(short)(Consts.HOST_BLOCK_SIZE * player + off)] != src[id_offset + off]) {
+                if(hosts[(short)(Consts.HOST_BLOCK_SIZE * player + off)] != src[(short) (id_offset + off)]) {
                     break;
                 }
                 eq++;
