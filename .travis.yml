@@ -29,6 +29,5 @@ script:
     - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard3players.xml
     - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard5players.xml
     - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard10players.xml
- 
- 
+    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngInsufficientPrivileges.xml
    

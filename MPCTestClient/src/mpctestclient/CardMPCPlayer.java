@@ -234,7 +234,7 @@ public class CardMPCPlayer implements MPCPlayer {
         ResponseAPDU response = transmit(channel, cmd);
 
         ///We do nothing with the key, as we just use the Aggregated R in the test cases
-        // return checkSW(response);
+        checkSW(response);
         return response.getData();
     }
 
@@ -314,6 +314,7 @@ public class CardMPCPlayer implements MPCPlayer {
                 Util.concat(Util.concat(packetData, hostId), ephemPubKeyEnc));
 
         ResponseAPDU response = transmit(channel, cmd);
+        checkSW(response);
         byte[] responseData = response.getData();
 
         short keyLength = Util.getShort(responseData, 0);
@@ -353,7 +354,7 @@ public class CardMPCPlayer implements MPCPlayer {
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - numPlayers | 2B - thisPlayerIndex|
-     *                  <HOST_ID_SIZE>B host's ID | signature
+     * <HOST_ID_SIZE>B host's ID | signature
      * Incoming packet: response code
      */
     @Override
@@ -362,6 +363,7 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_QUORUM_SETUP_NEW, quorumIndex, numPlayers, thisPlayerIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_QUORUM_SETUP_NEW, hostPrivKey, (byte) 0x00, (byte) 0x00, Util.concat(packetData, hostId));
         ResponseAPDU response = transmit(channel, cmd);
+
         return checkSW(response);
     }
 
@@ -412,6 +414,7 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, hostPrivKey, (byte) 0x0, (byte) 0x0, Util.concat(packetData, host_id));
 
         ResponseAPDU response = transmit(channel, cmd);
+        checkSW(response);
         byte[] responseData = response.getData();
         short dataLen = Util.getShort(responseData, 0);
         short sigLen = Util.getShort(responseData, 2 + dataLen);
@@ -441,7 +444,7 @@ public class CardMPCPlayer implements MPCPlayer {
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - player's index| 2B key length |
-     *                  <HOST_ID_SIZE>B host's ID | key | signature
+     * <HOST_ID_SIZE>B host's ID | key | signature
      */
     @Override
     public boolean StorePubKey(short quorumIndex, short id,
@@ -463,6 +466,7 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, hostPrivKey, (byte) 0x0, (byte) 0x0, Util.concat(packetData, hostId));
         ResponseAPDU response = transmit(channel, cmd);
+        checkSW(response);
 
         byte[] responseData = response.getData();
         byte[] data = Arrays.copyOfRange(responseData, 0, 65);
@@ -507,6 +511,7 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, hostPrivKey, (byte) 0x0, (byte) 0x0, Util.concat(packetData, hostId));
         ResponseAPDU response = transmit(channel, cmd);
         byte[] responseData = response.getData();
+        checkSW(response);
 
         short yagg_len = Util.getShort(responseData, 0);
         byte[] data = parseAndVerifySignature(responseData, 2, quorumsCtxMap.get(quorumIndex).pubkeyObject, 2 + yagg_len);
@@ -526,6 +531,7 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_ENCRYPT, hostPrivKey, (byte) 0x0, (byte) 0x0,
                 Util.concat(Util.concat(packetData, hostId), plaintext));
         ResponseAPDU response = transmit(channel, cmd);
+        checkSW(response);
         return response.getData();
     }
 
@@ -541,6 +547,7 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_DECRYPT, hostPrivKey, (byte) 0x0, (byte) 0x00,
                 Util.concat(Util.concat(packetData, hostId), ciphertext));
         ResponseAPDU response = transmit(channel, cmd);
+        checkSW(response);
 
         byte[] responseData = response.getData();
         // parse received packet to data and signature
@@ -622,6 +629,7 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN, hostPrivKey, (byte) round, (byte) 0x00, Util.concat(Util.concat(packetData, hostId), Util.concat(plaintext, Rn)));
         ResponseAPDU response = transmit(channel, cmd);
+        checkSW(response);
         return response.getData();
     }
 
@@ -636,6 +644,7 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_GENERATE_RANDOM, quorumIndex, numOfBytes);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_GENERATE_RANDOM, hostPrivKey, (byte) 0x0, (byte) 0x00, Util.concat(packetData, hostId));
         ResponseAPDU response = transmit(channel, cmd);
+        checkSW(response);
 
         byte[] responseData = response.getData();
         short cipherLen = Util.getShort(responseData, 0);
@@ -653,11 +662,13 @@ public class CardMPCPlayer implements MPCPlayer {
         return Arrays.copyOfRange(decryptedResp, 2, decryptedResp.length);
     }
 
-    private boolean checkSW(ResponseAPDU response) {
+    private boolean checkSW(ResponseAPDU response) throws MPCException {
         if (response.getSW() != (Consts.SW_SUCCESS & 0xffff)) {
             System.err.printf("Received error status: %02X.\n",
                     response.getSW());
-            assert !bFailOnAssert; // break on error
+            if (bFailOnAssert) {
+                handleReturnCode((short) response.getSW());
+            }
             return false;
         }
         return true;
@@ -744,6 +755,32 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_TESTECC, (byte) 2, point1.getEncoded(false).length, Util.concat(point1.getEncoded(false), scalar.toByteArray()));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
+    }
+
+    /**
+     * Handles the return code from the card and throws a corresponding exception.
+     *
+     * @param retCode Code returned from the card.
+     * @throws MPCException
+     */
+    void handleReturnCode(short retCode) throws MPCException {
+        switch (retCode) {
+
+            case Consts.SW_SUCCESS:
+                return;
+
+            case Consts.SW_DUPLICATE_HOST_ID:
+                throw new DuplicateHostIdException();
+
+            case Consts.SW_HOSTNOTALLOWED:
+                throw new HostNotAllowedException();
+
+            case Consts.SW_INVALID_PACKET_SIGNATURE:
+                throw new InvalidPacketSignatureException();
+
+            default:
+                throw new MPCException();
+        }
     }
 
     static class QuorumContext {
