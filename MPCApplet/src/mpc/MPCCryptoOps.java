@@ -454,6 +454,29 @@ public class MPCCryptoOps {
         return ECDSAObject.sign(plaintext, plaintextOffset, plaintextLength, dst, dstOffset);
     }
 
+    /**
+     * Produces SIG_Cpriv(plaintext, nonce)
+     *
+     * @param plaintext plaintext to sign
+     * @param plainOff plaintext offset
+     * @param plainLen plaintext length
+     * @param nonce nonce byte array
+     * @param nonceOff nonce offset
+     * @param nonceLen nonce length
+     * @param dest destination byte array
+     * @param destOff destination offset
+     * @param privKey card's private key
+     * @return length of the signature
+     */
+    short computeECDSASignatureWNonce(byte[] plaintext, short plainOff, short plainLen,byte[] nonce, short nonceOff,
+                                      short nonceLen, byte[] dest, short destOff, ECPrivateKey privKey) {
+
+        Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        ECDSAObject.init(privKey, Signature.MODE_SIGN);
+        ECDSAObject.update(nonce, nonceOff, nonceLen);
+        return ECDSAObject.sign(plaintext, plainOff, plainLen, dest, destOff);
+    }
+
     short PerformECDHExchange(byte[] apdubuf, short keyOffset, short keyLength) {
 
         // Generate this card's ephemeral key pair
@@ -523,7 +546,7 @@ public class MPCCryptoOps {
         return len;
     }
 
-    short GenerateRandom(byte[] apdubuf, short numOfBytes, short outputOffset) {
+    short GenerateRandom(byte[] apdubuf, short outputOffset, short numOfBytes) {
         randomData.generateData(apdubuf, outputOffset, numOfBytes);
         return numOfBytes;
     }

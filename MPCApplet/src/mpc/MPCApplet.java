@@ -344,7 +344,8 @@ public class MPCApplet extends Applet {
     }
 
     /**
-     * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B host's permissions | <HOST_ID_SIZE>B host's ID | pubKey | signature
+     * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B host's permissions | <HOST_ID_SIZE>B host's ID |
+     * pubKey | signature
      * Outgoing packet: response code
      *
      * @param apdu
@@ -370,8 +371,6 @@ public class MPCApplet extends Applet {
         quorumCtx.SetUserAuthPubkey(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SETUSERAUTHPUBKEY_PUBKEY_OFFSET),
                 (short) (paramsOffset + Consts.PACKET_PARAMS_SETUSERAUTHPUBKEY_PERM_OFFSET));
 
-
-        // TODO: set long-term authorization key for subsequent operations
         // TODO: change state
         // TODO: export card public info
     }
@@ -464,8 +463,8 @@ public class MPCApplet extends Applet {
      * a triplet consisting of: 1) a share xi , which is a randomly sampled
      * element from Zn, 2) an elliptic curve point Yi , and 3) a commitment
      * to Yi denoted hi.
-     * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | <HOST_ID_SIZE>B host's ID | signature
-     * Outgoing packet: response code
+     * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | <HOST_ID_SIZE>B host's ID | nonce | signature
+     * Outgoing packet: 2B 0x9000 | card's nonce | signature(nonce, 0x9000, card's nonce)
      *
      * @param apdu
      */
@@ -484,6 +483,12 @@ public class MPCApplet extends Applet {
 
         // Generate new triplet
         quorumCtx.InitAndGenerateKeyPair(true);
+
+        // create the outgoing packet
+        short nonceOff = (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENINIT_NONCE_OFFSET);
+        short len = createOutgoingSuccessApdu(apdubuf, quorumCtx, nonceOff);
+
+        apdu.setOutgoingAndSend((short) 0, len);
     }
 
     /**
@@ -527,8 +532,8 @@ public class MPCApplet extends Applet {
      * set H = {h1,h2, ..,ht }. The commitment exchange terminates when |Hq | =
      * t ∀q ∈ Q
      * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - player's index| 2B hash length |
-     * <HOST_ID_SIZE>B host's ID | hash | signature
-     * Outgoing packet: response code
+     * <HOST_ID_SIZE>B host's ID | nonce | hash | signature
+     * Outgoing packet: 2B 0x9000 | card's nonce | signature(nonce, 0x9000, card's nonce)
      *
      * @param apdu
      */
@@ -553,6 +558,11 @@ public class MPCApplet extends Applet {
         // Store provided commitment
         quorumCtx.StoreCommitment(playerId, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENT_OFFSET),
                 commitmentLen);
+
+        short nonceOff = (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_NONCE_OFFSET);
+        len = createOutgoingSuccessApdu(apdubuf, quorumCtx, nonceOff);
+
+        apdu.setOutgoingAndSend((short) 0, len);
     }
 
     /**
@@ -593,8 +603,8 @@ public class MPCApplet extends Applet {
      * If one or more commitments fail the verification then the member infers that an error (either intentional or
      * unintentional) occurred and the protocol is terminated.
      * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - player's index| 2B key length |
-     * <HOST_ID_SIZE>B host's ID | key | signature
-     * Outgoing packet: response code
+     * <HOST_ID_SIZE>B host's ID | nonce | key | signature
+     * Outgoing packet: 2B 0x9000 | card's nonce | signature(nonce, 0x9000, card's nonce)
      *
      * @param apdu
      */
@@ -617,6 +627,11 @@ public class MPCApplet extends Applet {
 
         // Store provided public key
         quorumCtx.SetYs(playerId, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEY_OFFSET), pubKeyLen);
+
+        short nonceOff = (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTOREPUBKEY_NONCE_OFFSET);
+        len = createOutgoingSuccessApdu(apdubuf, quorumCtx, nonceOff);
+
+        apdu.setOutgoingAndSend((short) 0, len);
     }
 
     /**
@@ -918,7 +933,7 @@ public class MPCApplet extends Applet {
         quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_GenerateRandomData, quorumCtx.FindHost(apdubuf, hostIdOff));
 
         byte[] encr_buffer = new byte[(short) (2 + numOfBytes)];
-        short len = quorumCtx.GenerateRandom(encr_buffer, numOfBytes, (short) 2);
+        short len = quorumCtx.GenerateRandom(encr_buffer, (short) 2, numOfBytes);
 
         Util.setShort(encr_buffer, (short) 0, len);
         len += 2;
@@ -947,6 +962,30 @@ public class MPCApplet extends Applet {
         apdubuf[Consts.PACKET_SIZE_OFFSET] -= (byte) (sig_len + Consts.SHORT_SIZE);
         sisgOff += 2;
         quorumCtx.VerifyPacketSignature(apdubuf, hostIdOff, sisgOff, sig_len, (short) 0, (short) (sisgOff - Consts.SHORT_SIZE));
+    }
+
+    /**
+     * Creates outgoing APDU
+     * 2B 0x9000 | card's nonce |
+     *
+     * @param apdubuf     APDU buffer
+     * @param quorumCtx   quorum context
+     * @param nonceOffset received nonce offset
+     * @return length of the packet
+     */
+    short createOutgoingSuccessApdu(byte[] apdubuf, QuorumContext quorumCtx, short nonceOffset) {
+
+        byte[] nonce = new byte[Consts.APDU_SIG_NONCE_SIZE];
+        Util.arrayCopyNonAtomic(apdubuf, nonceOffset, nonce, (short) 0, Consts.APDU_SIG_NONCE_SIZE);
+
+        Util.setShort(apdubuf, (short) 0, Consts.SW_SUCCESS);
+        short len = 2;
+
+        len += quorumCtx.GenerateNonce(apdubuf, (short) 2, Consts.APDU_SIG_NONCE_SIZE);
+
+        len += quorumCtx.signApduBufferWNonce(apdubuf, (short) 0, len, nonce, (short) 0, Consts.APDU_SIG_NONCE_SIZE,
+                apdubuf, len);
+        return len;
     }
 
 

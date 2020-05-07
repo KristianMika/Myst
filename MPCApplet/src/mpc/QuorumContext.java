@@ -1,6 +1,5 @@
 package mpc;
 
-import javacard.framework.APDU;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
@@ -8,56 +7,46 @@ import javacard.security.ECPrivateKey;
 import javacard.security.ECPublicKey;
 import javacard.security.KeyBuilder;
 import javacard.security.KeyPair;
-import mpc.jcmathlib.*;
+import mpc.jcmathlib.Bignat;
+import mpc.jcmathlib.ECConfig;
+import mpc.jcmathlib.ECCurve;
+import mpc.jcmathlib.SecP256r1;
 
 
 /**
- *
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class QuorumContext {
-    private MPCCryptoOps cryptoOps = null;
-
+    public final byte[] privbytes_backdoored = {(byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55};
     public short CARD_INDEX_THIS = 0;   // index of player realised by this card
     public short NUM_PLAYERS = 0;       // current number of players
-
-    class Player {
-        public boolean bYsValid = false;            // Is player's share (Ys) currently valid?
-        public byte[] YsCommitment = null;          // Value of comitment of player's share  (hash(Ys))
-        public boolean bYsCommitmentValid = false;  // Is comitment currently valid?
-    }
-    private Player[] players = null;                // contexts for all protocol participants (including this card)
-            
     // Signing
     public Bignat signature_counter = null;
     public short signature_counter_short = 0;
-    public byte[] signature_secret_seed = null; 
-
+    public byte[] signature_secret_seed = null;
     // Distributed keypair generation share
     ECCurve theCurve = null;
+    short host_count;
+    private MPCCryptoOps cryptoOps = null;
+    private Player[] players = null;                // contexts for all protocol participants (including this card)
     private KeyPair pair = null;
     private byte[] x_i_Bn = null;           // share xi, which is a randomly sampled element from Zn
-    private byte[] this_card_Ys = null;     // Ys for this card (not stored in Player[] context as shares are combined on the fly) 
+    private byte[] this_card_Ys = null;     // Ys for this card (not stored in Player[] context as shares are combined on the fly)
     private mpc.ECPointBase Y_EC_onTheFly = null; // aggregated Ys computed on the fly instead of in one shot once all shares are provided (COMPUTE_Y_ONTHEFLY)
     private short Y_EC_onTheFly_shares_count = 0; // number of public key shares already provided and combined during KeyGen_StorePublicKey
-    private short num_commitments_count  = 0;     // number of stored commitments
+    private short num_commitments_count = 0;     // number of stored commitments
+    private StateModel state = null; // current state of the protocol run - some operations are not available in given state
+    private final byte[] hosts;
+    private final ECPublicKey[] host_pub_obj;
 
-    private StateModel state = null; // current state of the protocol run - some operations are not available in given state    
-
-    private byte[] hosts;
-    short host_count;
-    private ECPublicKey[] host_pub_obj;
-
-    private HostACL acl = new HostACL();
+    private final HostACL acl = new HostACL();
 
 
-
-    
     public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOps cryptoOperations) {
         cryptoOps = cryptoOperations;
         signature_counter = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         signature_secret_seed = new byte[Consts.SECRET_SEED_SIZE];
-        
+
         theCurve = curve;
         this.pair = theCurve.newKeyPair(this.pair);
         x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
@@ -77,9 +66,9 @@ public class QuorumContext {
         host_pub_obj = new ECPublicKey[Consts.MAX_NUM_HOSTS];
 
 
-        for (short i = 0; i < Consts.MAX_NUM_HOSTS;i++) {
+        for (short i = 0; i < Consts.MAX_NUM_HOSTS; i++) {
             host_pub_obj[i] = null;
-         }
+        }
 
 
         Y_EC_onTheFly = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
@@ -114,15 +103,17 @@ public class QuorumContext {
     }
 
     public short FindHost(byte[] src, short id_offset) {
-        for(short player = 0; player < host_count;player++) {
+        for (short player = 0; player < host_count; player++) {
             short eq = 0;
-            for(short off = 0; off < Consts.HOST_ID_SIZE;off++) {
-                if(hosts[(short)(Consts.HOST_BLOCK_SIZE * player + off)] != src[(short) (id_offset + off)]) {
+            for (short off = 0; off < Consts.HOST_ID_SIZE; off++) {
+                if (hosts[(short) (Consts.HOST_BLOCK_SIZE * player + off)] != src[(short) (id_offset + off)]) {
                     break;
                 }
                 eq++;
             }
-            if (eq == Consts.HOST_ID_SIZE) {return player;}
+            if (eq == Consts.HOST_ID_SIZE) {
+                return player;
+            }
         }
         return -1;
     }
@@ -135,14 +126,14 @@ public class QuorumContext {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
         // Reset previous state
         Reset();
-        
+
         if (numPlayers > Consts.MAX_NUM_PLAYERS || numPlayers < 1) {
             ISOException.throwIt(Consts.SW_TOOMANYPLAYERS);
         }
         if (thisPlayerIndex >= Consts.MAX_NUM_PLAYERS || thisPlayerIndex < 0) {
             ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
         }
-        
+
         // Setup new state
         this.NUM_PLAYERS = numPlayers;
         this.CARD_INDEX_THIS = thisPlayerIndex;
@@ -164,7 +155,7 @@ public class QuorumContext {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
         Invalidate(true);
 
-        for (short i = 0; i < Consts.MAX_NUM_HOSTS;i++) {
+        for (short i = 0; i < Consts.MAX_NUM_HOSTS; i++) {
             host_pub_obj[i] = null;
         }
         host_count = 0;
@@ -175,17 +166,18 @@ public class QuorumContext {
         cryptoOps.aBn.set_from_byte_array((short) (cryptoOps.aBn.length() - (short) MPCCryptoOps.r_for_BigInteger.length), MPCCryptoOps.r_for_BigInteger, (short) 0, (short) MPCCryptoOps.r_for_BigInteger.length);
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
-    
+
     short GetState() {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetState);
         return state.GetState();
     }
 
     /**
-     * Initialize new quorum context and generates initial keypair for this card (Algorithm 4.1). 
+     * Initialize new quorum context and generates initial keypair for this card (Algorithm 4.1).
      * Sets quorum size (numPlayers), id of this card. Prepares necessary initial structures.
-     * @param numPlayers number of participants in this quorum
-     * @param cardID participant index assigned to this card 
+     *
+     * @param numPlayers         number of participants in this quorum
+     * @param cardID             participant index assigned to this card
      * @param bPrepareDecryption if true, speedup engines for fast decryption are pre-prepared
      */
     public void InitAndGenerateKeyPair(boolean bPrepareDecryption) {
@@ -196,7 +188,7 @@ public class QuorumContext {
 
         state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
         state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
-        
+
         pair.genKeyPair();
 
         if (Consts.IS_BACKDOORED_EXAMPLE) {
@@ -228,10 +220,9 @@ public class QuorumContext {
         }
         state.MakeStateTransition(StateModel.STATE_KEYGEN_PRIVATEGENERATED);
     }
-    
-    public final byte[] privbytes_backdoored = {(byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55};
+
     /**
-     * Generates intentionally insecure private key to demonstrate behaviour when 
+     * Generates intentionally insecure private key to demonstrate behaviour when
      * some participants are malicious. Private key bytes are all 0x55 ... 0x55
      */
     void GenerateExampleBackdooredKeyPair() {
@@ -277,24 +268,24 @@ public class QuorumContext {
         if (players[id].bYsCommitmentValid) {
             // commitment already stored
             ISOException.throwIt(Consts.SW_COMMITMENTALREADYSTORED);
-        }
-        else {
+        } else {
             Util.arrayCopyNonAtomic(commitment, commitmentOffset, players[id].YsCommitment, (short) 0, commitmentLength);
             players[id].bYsCommitmentValid = true;
             num_commitments_count++;
 
             if (num_commitments_count == NUM_PLAYERS) {
                 // All commitments were collected, allow for export of this card share
-                state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);  
+                state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);
             }
-            
+
         }
     }
 
-    /** 
+    /**
      * Sets public key share of other participant after verification of commitment match.
-     * @param id    index of target participant
-     * @param Y     buffer with target participant share
+     *
+     * @param id      index of target participant
+     * @param Y       buffer with target participant share
      * @param YOffset start offset within Y
      * @param YLength length of share
      */
@@ -324,7 +315,7 @@ public class QuorumContext {
         players[id].bYsValid = true;
         Y_EC_onTheFly_shares_count++;
 
-        // check if shares for all players were included. If yes, change the state 
+        // check if shares for all players were included. If yes, change the state
         if (Y_EC_onTheFly_shares_count == NUM_PLAYERS) {
             for (short i = 0; i < NUM_PLAYERS; i++) {
                 if (!players[i].bYsValid) {
@@ -341,9 +332,10 @@ public class QuorumContext {
 
     /**
      * Returns this card public key share
+     *
      * @param commitmentBuffer output buffer where to store commitment
      * @param commitmentOffset start offset within target output buffer
-     * @return 
+     * @return
      */
     public short GetYi(byte[] commitmentBuffer, short commitmentOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetYi);
@@ -376,7 +368,7 @@ public class QuorumContext {
 
     public short GetXi(byte[] array, short offset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetXi);
-        
+
         Util.arrayCopyNonAtomic(x_i_Bn, (short) 0, array, offset, (short) x_i_Bn.length);
         return (short) x_i_Bn.length;
     }
@@ -415,17 +407,16 @@ public class QuorumContext {
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
 
-    
     public short Encrypt(byte[] plaintext_arr, short plaintext_arr_offset, short plaintext_arr_len, byte[] outArray) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Encrypt);
         return cryptoOps.Encrypt(this, plaintext_arr, plaintext_arr_offset, plaintext_arr_len, outArray);
     }
-    
+
     public short DecryptShare(byte[] c1_c2_arr, short c1_c2_arr_offset, short c1_c2_arr_len, byte[] outputArray) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_DecryptShare);
         return cryptoOps.DecryptShare(this, c1_c2_arr, c1_c2_arr_offset, outputArray);
     }
-    
+
     public short Sign_RetrieveRandomRi(short counter, byte[] buffer) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
         // Counter must be strictly increasing, check
@@ -435,24 +426,22 @@ public class QuorumContext {
         signature_counter_short = counter;
         return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(signature_counter_short), signature_secret_seed, buffer);
     }
-    
+
     public short Sign(Bignat counter, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
-        return cryptoOps.Sign(this, counter, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);   
+        return cryptoOps.Sign(this, counter, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);
     }
-    
+
     public short Sign_GetCurrentCounter(byte[] outputArray, short outputBaseOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
         return signature_counter.copy_to_buffer(outputArray, outputBaseOffset);
     }
 
-
     public void VerifyCallerAuthorization(short requestedFnc, short host_id_off) {
         acl.VerifyCallerAuthorization(requestedFnc, GetHostPermissions(host_id_off));
     }
 
-
-    void VerifyPacketSignature(byte[] apdubuf, short hostIdOff , short sifOff, short sigLen, short dataOff, short dataLen){
+    void VerifyPacketSignature(byte[] apdubuf, short hostIdOff, short sifOff, short sigLen, short dataOff, short dataLen) {
         short host_i = FindHost(apdubuf, hostIdOff);
         if (host_i == -1) {
             ISOException.throwIt(Consts.SW_INVALID_HOST_id);
@@ -460,10 +449,13 @@ public class QuorumContext {
         cryptoOps.VerifyECDSASignature(apdubuf, sifOff, sigLen, dataOff, dataLen, host_pub_obj[host_i]);
     }
 
-
     short GenerateRandom(byte[] apdubuf, short numOfBytes, short outputOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GenerateRandomData);
         return cryptoOps.GenerateRandom(apdubuf, numOfBytes, outputOffset);
+    }
+
+    short GenerateNonce(byte[] apdubuf, short outputOffset, short nonceLen) {
+        return cryptoOps.GenerateRandom(apdubuf, outputOffset, nonceLen);
     }
 
     short signApdubuffer(byte[] apdubuf, short offset, short payloadLength) {
@@ -474,11 +466,40 @@ public class QuorumContext {
         return cryptoOps.computeECDSASignature(apdubuf, offset, payloadLength, dest, destinationOffset, (ECPrivateKey) pair.getPrivate());
     }
 
+    /**
+     *
+     * @param apdubuf APDU buffer
+     * @param offset data offset
+     * @param dataLen data length
+     * @param nonce none byte array
+     * @param nonceOff nonce offset
+     * @param nonceLen nonce length
+     * @param dest destination array
+     * @param destOff destination offset
+     * @return signature length
+     */
+    short signApduBufferWNonce(byte[] apdubuf, short offset, short dataLen, byte[] nonce, short nonceOff,
+                               short nonceLen, byte[] dest, short destOff) {
+
+        short len = cryptoOps.computeECDSASignatureWNonce(apdubuf, offset, dataLen, nonce, nonceOff, nonceLen, dest,
+                (short) (destOff + 2), (ECPrivateKey) pair.getPrivate());
+        // set the signature length parameter
+        Util.setShort(dest, destOff, len);
+
+        return (short) (Consts.SHORT_SIZE + len);
+    }
+
     short PerformDHExchange(byte[] apdubuf, short cardPubKeyEphemOffset, short cardPubKeyEphemLength) {
         return cryptoOps.PerformECDHExchange(apdubuf, cardPubKeyEphemOffset, cardPubKeyEphemLength);
     }
 
     short EncryptUsingAES(byte[] source, short sourceOffset, short dataLength, byte[] destination, short destinationOffset) {
         return cryptoOps.EncryptUsingAES(source, sourceOffset, dataLength, destination, destinationOffset);
+    }
+
+    class Player {
+        public boolean bYsValid = false;            // Is player's share (Ys) currently valid?
+        public byte[] YsCommitment = null;          // Value of comitment of player's share  (hash(Ys))
+        public boolean bYsCommitmentValid = false;  // Is comitment currently valid?
     }
 }
