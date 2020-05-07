@@ -412,7 +412,7 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_INIT, hostPrivKey, (byte) 0x00, (byte) 0x00,
                 Util.concat(Util.concat(packetData, hostId), nonce));
         ResponseAPDU response = transmit(channel, cmd);
-
+        checkSW(response);
         // store (nonce, returned bytes) as a plaintext
         saveSignature(Util.concat(nonce, response.getBytes()), 0, Consts.APDU_SIG_NONCE_SIZE * 2 + 2, quorumIndex);
 
@@ -462,6 +462,7 @@ public class CardMPCPlayer implements MPCPlayer {
                 Util.concat(Util.concat(packetData, hostId), Util.concat(nonce, hash_arr)));
         ResponseAPDU response = transmit(channel, cmd);
 
+        checkSW(response);
         // store (nonce, returned bytes) as a plaintext
         saveSignature(Util.concat(nonce, response.getBytes()), 0, Consts.APDU_SIG_NONCE_SIZE * 2 + 2, quorumIndex);
         return checkSW(response);
@@ -484,6 +485,7 @@ public class CardMPCPlayer implements MPCPlayer {
                 Util.concat(Util.concat(packetData, hostId), Util.concat(nonce, pub_arr)));
         ResponseAPDU response = transmit(channel, cmd);
 
+        checkSW(response);
         // verify (nonce, returned bytes) as a plaintext
         parseAndVerifySignature(Util.concat(nonce, response.getBytes()), 0, Consts.APDU_SIG_NONCE_SIZE * 2 + 2, quorumIndex);
         return checkSW(response);
