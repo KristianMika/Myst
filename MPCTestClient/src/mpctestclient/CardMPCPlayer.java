@@ -529,7 +529,7 @@ public class CardMPCPlayer implements MPCPlayer {
         // verify all signatures that have been stored since the beginning of the protocol run
         for (Pair<byte[], byte[]> pair : quorumsCtxMap.get(quorumIndex).signaturesToVerify) {
             if (!verifyECDSASignature(pair.first(), pair.second(), quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
-                throw new InvalidPacketSignatureException();
+                throw new InvalidCardSignatureException();
             }
         }
         return data;
@@ -779,16 +779,16 @@ public class CardMPCPlayer implements MPCPlayer {
      * @param sigOff  signature offset
      * @param quorumI quorum index
      * @return byte array
-     * @throws InvalidPacketSignatureException
+     * @throws InvalidCardSignatureException
      */
     private byte[] parseAndVerifySignature(byte[] data, int dataOff, int sigOff, short quorumI)
-            throws InvalidPacketSignatureException, GeneralSecurityException {
+            throws InvalidCardSignatureException, GeneralSecurityException {
         short sigLen = Util.getShort(data, sigOff);
         byte[] signature = Arrays.copyOfRange(data, sigOff + 2, sigOff + 2 + sigLen);
         data = Arrays.copyOfRange(data, dataOff, sigOff);
         PublicKey pubkey = quorumsCtxMap.get(quorumI).pubkeyObject;
         if (!verifyECDSASignature(data, signature, pubkey)) {
-            throw new InvalidPacketSignatureException();
+            throw new InvalidCardSignatureException();
         }
         return data;
     }
@@ -826,10 +826,10 @@ public class CardMPCPlayer implements MPCPlayer {
                 throw new HostNotAllowedException();
 
             case Consts.SW_INVALID_PACKET_SIGNATURE:
-                throw new InvalidPacketSignatureException();
+                throw new InvalidHostSignatureException();
 
             default:
-                throw new MPCException();
+                throw new MPCException(String.format("0x%02X",retCode));
         }
     }
 
