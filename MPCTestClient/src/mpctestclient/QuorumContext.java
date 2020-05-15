@@ -8,6 +8,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.HashMap;
 
 
 public class QuorumContext {
@@ -15,8 +16,15 @@ public class QuorumContext {
     // Consts
     public static final short MAX_NUM_PLAYERS = (short) 15;
     public static final short BASIC_ECC_LENGTH = (short) 32;
+    public static final short MAX_NUM_HOSTS = (short) 5;
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
+    public static final short HOST_ID_SIZE = 4;
     public static short NUM_PLAYERS;
+    private final MPCGlobals mpcGlobals;
+    private final Player[] players;
+    private final StateModel state;
+    private final HashMap<ByteWrapper, HostACL> hosts;
+    public boolean hostInitialised;
     //Key Pair
     public BigInteger priv_key_BI;
     public ECPoint pub_key_EC;
@@ -32,13 +40,10 @@ public class QuorumContext {
     public short num_pubkeys_count;
     public ECPoint Yagg;
     public short Yagg_shares_count;
-
     public short CARD_INDEX_THIS;
-    private MPCGlobals mpcGlobals;
-    private Player[] players;
-    private StateModel state;
 
-    public QuorumContext(MPCGlobals mpcGlobals) throws StateModel.StateException {
+
+    public QuorumContext(MPCGlobals mpcGlobals) throws MPCException {
         this.mpcGlobals = mpcGlobals;
 
         // Yagg initialization and secret seed generation
@@ -58,6 +63,22 @@ public class QuorumContext {
 
         state = new StateModel();
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
+        hosts = new HashMap<>();
+    }
+
+    void SetHostAuthPubkey(ECPoint pubkey, short aclByte, byte[] hostId) throws MPCException {
+        if (hosts.size() >= MAX_NUM_HOSTS) {
+            throw new MPCException("Too many hosts");
+        }
+
+        byte[] newHostId = Arrays.copyOfRange(pubkey.getEncoded(false), 0, HOST_ID_SIZE);
+
+        if (hosts.containsKey(new ByteWrapper(newHostId))) {
+            throw new DuplicateHostIdException();
+        }
+
+        hosts.put(new ByteWrapper(newHostId), new HostACL(newHostId, aclByte));
+        hostInitialised = true;
     }
 
     /**
@@ -66,20 +87,20 @@ public class QuorumContext {
      * @param numPlayers      Number of players that will participate in this quorum
      * @param thisPlayerIndex Index of this player
      * @return
-     * @throws Exception
+     * @throws MPCException
      */
-    public boolean Setup(short numPlayers, short thisPlayerIndex) throws Exception {
+    public boolean Setup(short numPlayers, short thisPlayerIndex, byte[] hostId) throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
 
         Reset();
 
-        // approves number of players
+        // approves the number of players
         if (numPlayers > MAX_NUM_PLAYERS || numPlayers < 1) {
-            throw new quorumContextException("Number of players is outside the accepted interval.");
+            throw new MPCException("Number of players is outside the accepted interval.");
         }
 
         if (thisPlayerIndex >= MAX_NUM_PLAYERS || thisPlayerIndex < 0) {
-            throw new quorumContextException("Player's index is not valid.");
+            throw new MPCException("Player's index is not valid.");
         }
 
         NUM_PLAYERS = numPlayers;
@@ -93,10 +114,8 @@ public class QuorumContext {
 
     /**
      * Resets the simulated player
-     *
-     * @throws StateModel.StateException
      */
-    public void Reset() throws StateModel.StateException {
+    public void Reset() throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
         Invalidate(true);
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
@@ -105,10 +124,9 @@ public class QuorumContext {
     /**
      * Invalidates stored keys and calls KeyGen()
      *
-     * @throws StateModel.StateException
      * @throws NoSuchAlgorithmException
      */
-    public void GenKeyPair() throws StateModel.StateException, NoSuchAlgorithmException {
+    public void GenKeyPair() throws NoSuchAlgorithmException, MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
 
         Invalidate(false);
@@ -154,16 +172,15 @@ public class QuorumContext {
      *
      * @param i incrementing request counter
      * @return Ri, j
-     * @throws StateModel.StateException
      * @throws NoSuchAlgorithmException
-     * @throws quorumContextException
      */
-    public byte[] Gen_Rin(short i) throws StateModel.StateException, NoSuchAlgorithmException, quorumContextException {
+    public byte[] Gen_Rin(short i, byte[] hostId) throws NoSuchAlgorithmException, MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
+
 
         // checks if the counter hasn't been used before == (if the counter is bigger then the previous one)
         if (i <= signature_counter) {
-            throw new quorumContextException("Provided counter is not valid.");
+            throw new MPCException("Provided counter is not valid.");
         }
 
         // stores the counter for later comparison
@@ -178,9 +195,9 @@ public class QuorumContext {
      * Checks if public key retrieval is allowed
      *
      * @return
-     * @throws Exception
+     * @throws MPCException
      */
-    public boolean RetrievePubKeyHash() throws Exception {
+    public boolean RetrievePubKeyHash() throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_RetrieveCommitment);
 
         // In extreme case, when quorum is of size 1 and StorePubKeyHash() is skipped, the state transition has to happen here
@@ -197,19 +214,19 @@ public class QuorumContext {
      * @param playerIndex Index of the player whose hash is being stored
      * @param hash_arr    hash of public key
      * @return
-     * @throws Exception
+     * @throws MPCException
      */
-    public boolean StorePubKeyHash(short playerIndex, byte[] hash_arr) throws Exception {
+    public boolean StorePubKeyHash(short playerIndex, byte[] hash_arr) throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_StoreCommitment);
 
         // approves player's index
         if (playerIndex < 0 || playerIndex == CARD_INDEX_THIS || playerIndex >= NUM_PLAYERS) {
-            throw new quorumContextException("Player's index is not valid.");
+            throw new MPCException("Player's index is not valid.");
         }
 
         // makes sure the player hasn't submitted his pubkey hash before
         if (players[playerIndex].pubKeyHashValid) {
-            throw new quorumContextException("Commitment is already stored.");
+            throw new MPCException("Commitment is already stored.");
         }
 
         // stores the hash
@@ -227,13 +244,13 @@ public class QuorumContext {
      * retrieves this player's public key
      *
      * @return public key
-     * @throws Exception
+     * @throws MPCException
      */
-    public byte[] RetrievePubKey() throws Exception {
+    public byte[] RetrievePubKey() throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetYi);
 
         if (!players[CARD_INDEX_THIS].pubKeyValid) {
-            throw new quorumContextException("Share is not valid.");
+            throw new MPCException("Share is not valid.");
         }
 
         // In extreme case, when quorum is of size 1 and StorePubKey() is skipped, the state transition has to happen here
@@ -251,19 +268,19 @@ public class QuorumContext {
      * @param playerIndex Index of the player whose public key is being stored
      * @param pub_arr     public key
      * @return
-     * @throws Exception
+     * @throws MPCException
      */
-    public boolean StorePubKey(short playerIndex, byte[] pub_arr) throws Exception {
+    public boolean StorePubKey(short playerIndex, byte[] pub_arr) throws MPCException, NoSuchAlgorithmException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetYs);
 
         // makes sure player's index is valid
         if (playerIndex < 0 || playerIndex == CARD_INDEX_THIS || playerIndex >= NUM_PLAYERS) {
-            throw new quorumContextException("Player's index is not valid.");
+            throw new MPCException("Player's index is not valid.");
         }
 
         // checks that the player hasn't submitted his pubkey before
         if (players[playerIndex].pubKeyValid) {
-            throw new quorumContextException("Share is already stored.");
+            throw new MPCException("Share is already stored.");
         }
 
         // computes the hash of submitted pubkey and compares it to the hash submitted before
@@ -271,7 +288,7 @@ public class QuorumContext {
         md.update(pub_arr);
         byte[] hash_comp = md.digest();
         if (!Arrays.equals(hash_comp, players[playerIndex].pubKeyHash)) {
-            throw new quorumContextException("Commitment is not valid.");
+            throw new MPCException("Commitment is not valid.");
         }
 
         // storing pubkey
@@ -297,9 +314,9 @@ public class QuorumContext {
      * Since Yagg is computed in storePubkey(), RetrieveAggPubkey() only checks if Yagg is computed
      *
      * @return
-     * @throws Exception
+     * @throws MPCException
      */
-    public boolean RetrieveAggPubKey() throws Exception {
+    public boolean RetrieveAggPubKey() throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetY);
         return true;
     }
@@ -312,17 +329,15 @@ public class QuorumContext {
      * @param plaintext plaintext to be signed
      * @return signature
      * @throws NoSuchAlgorithmException
-     * @throws StateModel.StateException
-     * @throws quorumContextException
      */
-    public BigInteger Sign(int round, byte[] Rn, byte[] plaintext) throws NoSuchAlgorithmException, StateModel.StateException, quorumContextException {
+    public BigInteger Sign(int round, byte[] Rn, byte[] plaintext) throws NoSuchAlgorithmException, MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
         Bignat roundBn = Util.makeBignatFromValue(round);
         ECPoint R_EC = Util.ECPointDeSerialization(mpcGlobals.curve, Rn, 0);
 
         // checks if the counter hasn't been used before == (if the counter is bigger then the previous one)
         if (!signature_counter_Bn.lesser(roundBn)) {
-            throw new quorumContextException("Provided counter is not valid.");
+            throw new MPCException("Provided counter is not valid.");
         }
         // stores the counter for later comparison
         signature_counter_Bn.copy(roundBn);
@@ -357,9 +372,9 @@ public class QuorumContext {
      *
      * @param plaintext plaintext to be encrypted
      * @return encrypted plaintext
-     * @throws Exception
+     * @throws MPCException
      */
-    public byte[] Encrypt(byte[] plaintext) throws Exception {
+    public byte[] Encrypt(byte[] plaintext) throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Encrypt);
 
         SecureRandom rnd = new SecureRandom();
@@ -374,9 +389,9 @@ public class QuorumContext {
      *
      * @param ciphertext El Gamal ciphertext C1
      * @return decryption share
-     * @throws Exception
+     * @throws MPCException
      */
-    public byte[] Decrypt(byte[] ciphertext) throws Exception {
+    public byte[] Decrypt(byte[] ciphertext) throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_DecryptShare);
 
         ECPoint c1 = Util.ECPointDeSerialization(mpcGlobals.curve, ciphertext, 0);
@@ -390,7 +405,8 @@ public class QuorumContext {
      * @param length length of the byte array
      * @return a random byte array
      */
-    public byte[] GenerateRandom(short length) {
+    public byte[] GenerateRandom(short length) throws MPCException {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GenerateRandomData);
         byte[] randomBytes = new byte[length];
         SecureRandom random = new SecureRandom();
         random.nextBytes(randomBytes);
@@ -401,9 +417,8 @@ public class QuorumContext {
      * Invalidates stored keys and initializes necessary variables
      *
      * @param bEraseAllArrays if true, invalidates all variables
-     * @throws StateModel.StateException
      */
-    private void Invalidate(boolean bEraseAllArrays) throws StateModel.StateException {
+    private void Invalidate(boolean bEraseAllArrays) throws MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Invalidate);
 
         SecureRandom random = new SecureRandom();
@@ -416,6 +431,8 @@ public class QuorumContext {
             num_pubkeys_count = 0;
             Yagg = mpcGlobals.curve.getInfinity();
             Yagg_shares_count = 0;
+            hosts.clear();
+            hostInitialised = false;
         }
 
         signature_counter = 0;
@@ -449,16 +466,41 @@ public class QuorumContext {
         return md.digest();
     }
 
-    // used for handling quorum context errors
-    static class quorumContextException extends Exception {
-        quorumContextException(String errorMessage) {
-            super(errorMessage);
+
+    void VerifyCallerAuthorization(short requestedFunc, byte[] hostId) throws MPCException {
+        ByteWrapper hostIdWrapped = new ByteWrapper(hostId);
+        if (!hosts.containsKey(hostIdWrapped)) {
+            throw new InvalidHostIdException();
         }
+        hosts.get(hostIdWrapped).VerifyCallerAuthorization(requestedFunc);
     }
 
-    //
-    // Error handling
-    //
+    /**
+     * Since arrays don't implement value equality the way we want,
+     * hostID will be wrapped inside this class. This way we can use
+     * a byte array as a key in a map.
+     */
+    static class ByteWrapper {
+        public byte[] hostId;
+
+        public ByteWrapper(byte[] hostId) {
+            this.hostId = hostId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(hostId);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof ByteWrapper)) {
+                return false;
+            }
+            return Arrays.equals(hostId, ((ByteWrapper) o).hostId);
+        }
+
+    }
 
     class Player {
         public byte[] pubKey = null;

@@ -38,11 +38,11 @@ public class StateModel {
     public static final short FNC_QuorumContext_GenerateRandomData = (short) 0xf012;
     private short STATE_KEYGEN = STATE_UNINITIALIZED;
 
-    public void CheckAllowedFunction(short requestedFnc) throws StateException {
+    public void CheckAllowedFunction(short requestedFnc) throws MPCException {
         CheckAllowedFunction(requestedFnc, STATE_KEYGEN);
     }
 
-    public short MakeStateTransition(short newState) throws StateException {
+    public short MakeStateTransition(short newState) throws MPCException {
         STATE_KEYGEN = MakeStateTransition(STATE_KEYGEN, newState);
         return STATE_KEYGEN;
     }
@@ -51,7 +51,7 @@ public class StateModel {
         return STATE_KEYGEN;
     }
 
-    private void CheckAllowedFunction(short requestedFnc, short currentState) throws StateException {
+    private void CheckAllowedFunction(short requestedFnc, short currentState) throws MPCException {
         // Check for functions which can be called from any state
         switch (requestedFnc) {
             case FNC_QuorumContext_Reset:
@@ -66,27 +66,27 @@ public class StateModel {
         switch (currentState) {
             case STATE_QUORUM_CLEARED:
                 if (requestedFnc == FNC_QuorumContext_SetupNew) return;
-                throw new StateException("Wanted function is not allowed in this state.");
+                throw new FunctionNotAllowedException();
 
             case STATE_QUORUM_INITIALIZED:
-                throw new StateException("Wanted function is not allowed in this state.");
+                throw new FunctionNotAllowedException();
 
             case STATE_KEYGEN_CLEARED:
                 if (requestedFnc == FNC_QuorumContext_InitAndGenerateKeyPair) return;
-                throw new StateException("Wanted function is not allowed in this state.");
+                throw new FunctionNotAllowedException();
 
             case STATE_KEYGEN_PRIVATEGENERATED:
                 if (requestedFnc == FNC_QuorumContext_RetrieveCommitment) return;
                 if (requestedFnc == FNC_QuorumContext_StoreCommitment) return;
-                throw new StateException("Wanted function is not allowed in this state.");
+                throw new FunctionNotAllowedException();
 
             case STATE_KEYGEN_COMMITMENTSCOLLECTED:
                 if (requestedFnc == FNC_QuorumContext_SetYs) return;
                 if (requestedFnc == FNC_QuorumContext_GetYi) return;
-                throw new StateException("Wanted function is not allowed in this state.");
+                throw new FunctionNotAllowedException();
 
             case STATE_KEYGEN_SHARESCOLLECTED:
-                throw new StateException("Wanted function is not allowed in this state.");
+                throw new FunctionNotAllowedException();
 
             case STATE_KEYGEN_KEYPAIRGENERATED:
                 if (requestedFnc == FNC_QuorumContext_GetXi) return;
@@ -97,14 +97,14 @@ public class StateModel {
                 if (requestedFnc == FNC_QuorumContext_Sign) return;
                 if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter) return;
 
-                throw new StateException("Wanted function is not allowed in this state."); // if reached, function is not allowed in given state
+                throw new FunctionNotAllowedException(); // if reached, function is not allowed in the given state
 
             default:
-                throw new StateException("Player is in unknown state");
+                throw new FunctionNotAllowedException("Unknown state");
         }
     }
 
-    private short MakeStateTransition(short currentState, short newState) throws StateException {
+    private short MakeStateTransition(short currentState, short newState) throws MPCException {
         // Check for functions which can be reached from any state
         switch (newState) {
             case STATE_QUORUM_CLEARED:
@@ -115,32 +115,26 @@ public class StateModel {
         switch (currentState) {
             case STATE_QUORUM_CLEARED:
                 if (newState == STATE_QUORUM_INITIALIZED) return newState;
-                throw new StateException("Wanted transition is not allowed in this state"); // if reached, transition is not allowed
+                throw new TransitionNotAllowedException();
             case STATE_QUORUM_INITIALIZED:
                 if (newState == STATE_KEYGEN_CLEARED) return newState;
-                throw new StateException("Wanted transition is not allowed in this state"); // if reached, transition is not allowed
+                throw new TransitionNotAllowedException();
             case STATE_KEYGEN_CLEARED:
                 if (newState == STATE_KEYGEN_PRIVATEGENERATED) return newState;
-                throw new StateException("Wanted transition is not allowed in this state");// if reached, transition is not allowed
+                throw new TransitionNotAllowedException();
             case STATE_KEYGEN_PRIVATEGENERATED:
                 if (newState == STATE_KEYGEN_COMMITMENTSCOLLECTED) return newState;
-                throw new StateException("Wanted transition is not allowed in this state");// if reached, transition is not allowed
+                throw new TransitionNotAllowedException();
             case STATE_KEYGEN_COMMITMENTSCOLLECTED:
                 if (newState == STATE_KEYGEN_SHARESCOLLECTED) return newState;
-                throw new StateException("Wanted transition is not allowed in this state");// if reached, transition is not allowed
+                throw new TransitionNotAllowedException();
             case STATE_KEYGEN_SHARESCOLLECTED:
                 if (newState == STATE_KEYGEN_KEYPAIRGENERATED) return newState;
-                throw new StateException("Wanted transition is not allowed in this state");// if reached, transition is not allowed
+                throw new TransitionNotAllowedException();
             case STATE_KEYGEN_KEYPAIRGENERATED:
-                throw new StateException("Wanted transition is not allowed in this state");// if reached, transition is not allowed
+                throw new TransitionNotAllowedException();
             default:
-                throw new StateException("Wanted transition is not allowed in this state");// if reached, transition is not allowed
-        }
-    }
-
-    class StateException extends Exception {
-        public StateException(String errorMessage) {
-            super(errorMessage);
+                throw new TransitionNotAllowedException();
         }
     }
 

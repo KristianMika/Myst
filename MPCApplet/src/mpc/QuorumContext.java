@@ -444,7 +444,7 @@ public class QuorumContext {
     void VerifyPacketSignature(byte[] apdubuf, short hostIdOff, short sifOff, short sigLen, short dataOff, short dataLen) {
         short host_i = FindHost(apdubuf, hostIdOff);
         if (host_i == -1) {
-            ISOException.throwIt(Consts.SW_INVALID_HOST_id);
+            ISOException.throwIt(Consts.SW_INVALID_HOST_ID);
         }
         cryptoOps.VerifyECDSASignature(apdubuf, sifOff, sigLen, dataOff, dataLen, host_pub_obj[host_i]);
     }

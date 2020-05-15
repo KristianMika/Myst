@@ -828,6 +828,12 @@ public class CardMPCPlayer implements MPCPlayer {
             case Consts.SW_INVALID_PACKET_SIGNATURE:
                 throw new InvalidHostSignatureException();
 
+            case Consts.SW_INVALID_HOST_ID:
+                throw new InvalidHostIdException();
+
+            case Consts.SW_FUNCTINNOTALLOWED:
+                throw new FunctionNotAllowedException();
+
             default:
                 throw new MPCException(String.format("0x%02X",retCode));
         }

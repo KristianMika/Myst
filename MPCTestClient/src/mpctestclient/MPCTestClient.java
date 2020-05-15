@@ -438,8 +438,7 @@ public class MPCTestClient {
 
         // Simulate all remaining participants in protocol in addition to MPC card(s)
         for (; cardID < runCfg.numPlayers; cardID++) {
-            // simulated players currently do not recognise hosts
-            //mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals));
+            mpcGlobals.players.add(new SimulatedMPCPlayer(mpcGlobals));
         }
 
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
@@ -530,6 +529,11 @@ public class MPCTestClient {
 
             // Close cvs perf file
             perfFile.close();
+
+            System.err.flush();
+            System.out.println("######");
+            System.out.println("OK");
+            System.out.println("######");
         }
     }
 

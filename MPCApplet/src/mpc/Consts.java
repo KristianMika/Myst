@@ -91,12 +91,12 @@ public class Consts {
     public static final short SW_INCORRECTJCMATHLIBSETTINGS     = (short) 0x8012;
     public static final short SW_TOOMANYHOSTS                   = (short) 0x8013;
     public static final short SW_HOSTNOTALLOWED                 = (short) 0x8014;
-    public static final short SW_INVALID_HOST_id                = (short) 0x8014;
-    public static final short SW_INVALID_PACKET_SIGNATURE       = (short) 0x8015;
-    public static final short SW_HOST_NOT_INITIALISED           = (short) 0x8016;
-    public static final short SW_HOST_ALREADY_INITIALISED       = (short) 0x8017;
-    public static final short SW_DH_EXCHANGE_SKIPPED            = (short) 0x8018;
-    public static final short SW_DUPLICATE_HOST_ID              = (short) 0x8019;
+    public static final short SW_INVALID_HOST_ID                = (short) 0x8015;
+    public static final short SW_INVALID_PACKET_SIGNATURE       = (short) 0x8016;
+    public static final short SW_HOST_NOT_INITIALISED           = (short) 0x8017;
+    public static final short SW_HOST_ALREADY_INITIALISED       = (short) 0x8018;
+    public static final short SW_DH_EXCHANGE_SKIPPED            = (short) 0x8019;
+    public static final short SW_DUPLICATE_HOST_ID              = (short) 0x801a;
 
     
             

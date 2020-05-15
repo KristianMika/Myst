@@ -2,6 +2,7 @@ package mpctestclient;
 
 /**
  * Exceptions used when a card returns an error code.
+ *
  * @author Kristian Mika
  */
 class MPCException extends Exception {
@@ -24,6 +25,16 @@ class MPCException extends Exception {
  */
 class DuplicateHostIdException extends MPCException {
     public DuplicateHostIdException() {
+        super();
+    }
+}
+
+/**
+ * Used when a card returns SW_INVALID_HOST_ID error code.
+ * This happens when the card can't identify a host. The host might have skipped the SetAuthPubkey phase.
+ */
+class InvalidHostIdException extends MPCException {
+    public InvalidHostIdException() {
         super();
     }
 }
@@ -53,6 +64,30 @@ class InvalidCardSignatureException extends MPCException {
  */
 class InvalidHostSignatureException extends MPCException {
     public InvalidHostSignatureException() {
+        super();
+    }
+}
+
+/**
+ * Used when a card returns the SW_FUNCTINNOTALLOWED error code.
+ * This means that the quorum is in a state that doesn't allow to perform the requested query.
+ */
+class FunctionNotAllowedException extends MPCException {
+    public FunctionNotAllowedException() {
+        super();
+    }
+
+    public FunctionNotAllowedException(String s) {
+        super(s);
+    }
+}
+
+/**
+ * Used when a card returns the SW_INCORRECTSTATETRANSITION error code.
+ * This may happen when a host submits queries in a wrong order, e.g. request to sing data without previous keyGeneration.
+ */
+class TransitionNotAllowedException extends MPCException {
+    public TransitionNotAllowedException() {
         super();
     }
 }
