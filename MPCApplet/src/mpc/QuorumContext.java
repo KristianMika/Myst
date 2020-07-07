@@ -62,13 +62,8 @@ public class QuorumContext {
             }
         }
 
-        hosts = new byte[(short) (Consts.MAX_NUM_HOSTS * (Consts.PUBKEY_YS_SHARE_SIZE + 2))];
+        hosts = new byte[(short) (Consts.MAX_NUM_HOSTS * (Consts.HOST_BLOCK_SIZE))];
         host_pub_obj = new ECPublicKey[Consts.MAX_NUM_HOSTS];
-
-
-        for (short i = 0; i < Consts.MAX_NUM_HOSTS; i++) {
-            host_pub_obj[i] = null;
-        }
 
 
         Y_EC_onTheFly = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
@@ -79,43 +74,81 @@ public class QuorumContext {
 
     }
 
-    public void SetUserAuthPubkey(byte[] apdbuf, short pubkeyOffset, short aclOffset) {
-        //state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetUserPubKey);
+    /**
+     * Stores a public key with an ACL into the "hosts" byte array.
+     * Hosts = [pubKey_1|ACL_1, ... , pubKey_n|ACL_n], where n = host_count
+     *
+     * @param pubkeySrc the source byte array with a public key
+     * @param pubkeyOff offset of the public key
+     * @param aclOff offset of the ACL short
+     */
+    public void SetUserAuthPubkey(byte[] pubkeySrc, short pubkeyOff, short aclOff) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetUserPubKey);
 
-        // store host's info
-        if (FindHost(apdbuf, pubkeyOffset) != -1) {
+        if (FindHost(pubkeySrc, pubkeyOff) != -1) {
             throw new ISOException(Consts.SW_DUPLICATE_HOST_ID);
         }
 
-        // check for number of number of hosts
         if (host_count >= Consts.MAX_NUM_HOSTS) {
             ISOException.throwIt(Consts.SW_TOOMANYHOSTS);
         }
 
-        short offset = (short) (host_count * (Consts.HOST_BLOCK_SIZE));
-        Util.arrayCopyNonAtomic(apdbuf, pubkeyOffset, hosts, offset, Consts.PUBKEY_YS_SHARE_SIZE);
-        Util.arrayCopyNonAtomic(apdbuf, aclOffset, hosts, (short) (offset + Consts.PUBKEY_YS_SHARE_SIZE), (short) (2));
+        short offset = GetPubkeyIndex(pubkeySrc, pubkeyOff, true);
 
-        host_pub_obj[host_count] = (ECPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, false);
-        host_pub_obj[host_count].setW(apdbuf, pubkeyOffset, Consts.PUBKEY_YS_SHARE_SIZE);
+        // Shifts pubkey objects to the right from the "offset" index
+        for (short i = host_count; i > offset;i--) {
+            host_pub_obj[i] = host_pub_obj[(short) (i-1)];
+        }
+
+        // Restores the ECpubkey from a byte array
+        host_pub_obj[offset] = (ECPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, false);
+        host_pub_obj[offset].setW(pubkeySrc, pubkeyOff, Consts.PUBKEY_YS_SHARE_SIZE);
+
+        // Shifts hosts' blocks of a pubkey and an ACL variable to the right
+        Util.arrayCopyNonAtomic(hosts, (short) (offset * Consts.HOST_BLOCK_SIZE), hosts, (short) ((offset + 1) * Consts.HOST_BLOCK_SIZE),
+                (short) ((host_count - offset) * (Consts.HOST_BLOCK_SIZE)));
+
+        // Stores the pubkey and the ACL short
+        Util.arrayCopyNonAtomic(pubkeySrc, pubkeyOff, hosts, (short) (offset * Consts.HOST_BLOCK_SIZE), Consts.PUBKEY_YS_SHARE_SIZE);
+        Util.arrayCopyNonAtomic(pubkeySrc, aclOff, hosts, (short) (offset * Consts.HOST_BLOCK_SIZE + Consts.PUBKEY_YS_SHARE_SIZE), Consts.ACL_SIZE);
+
         host_count++;
+    }
 
+    /**
+     * Public keys are stored in the "hosts" byte array in ascending order. For each host, there is a public key and a
+     * 2B ACL (short). This method uses binary search for logarithmic time complexity.
+     *
+     * @param pubkey_src a byte array with a public key
+     * @param pubkeyOffset offset of the public key
+     * @param insert is true when it's used for finding the correct position for a new public key to be stored
+     * @return index of the wanted host's public key (index relative to the public keys, not the bytes)
+     */
+    public short GetPubkeyIndex(byte[] pubkey_src, short pubkeyOffset, boolean insert) {
+        short left = 0;
+        short right = (short) (host_count - 1);
+
+        short middle = 0;
+        while (left <= right) {
+
+             middle = (short) ((short) (left + right ) / 2);
+
+            byte comp_res = Util.arrayCompare( pubkey_src, pubkeyOffset, hosts, (short) (middle * Consts.HOST_BLOCK_SIZE), Consts.HOST_ID_SIZE);
+
+            if ( comp_res < 0) {
+                right = (short) (middle - 1);
+            } else if (comp_res > 0) {
+                left = (short) (middle + 1);
+            } else {
+                return middle;
+            }
+
+        }
+        return (short) (insert ? (short) (left + right + 1) / 2  : -1);
     }
 
     public short FindHost(byte[] src, short id_offset) {
-        for (short player = 0; player < host_count; player++) {
-            short eq = 0;
-            for (short off = 0; off < Consts.HOST_ID_SIZE; off++) {
-                if (hosts[(short) (Consts.HOST_BLOCK_SIZE * player + off)] != src[(short) (id_offset + off)]) {
-                    break;
-                }
-                eq++;
-            }
-            if (eq == Consts.HOST_ID_SIZE) {
-                return player;
-            }
-        }
-        return -1;
+        return GetPubkeyIndex(src, id_offset, false);
     }
 
     public short GetHostPermissions(short index) {
@@ -387,6 +420,8 @@ public class QuorumContext {
             cryptoOps.randomData.generateData(x_i_Bn, (short) 0, (short) x_i_Bn.length);
             cryptoOps.randomData.generateData(signature_secret_seed, (short) 0, (short) signature_secret_seed.length);
             cryptoOps.randomData.generateData(this_card_Ys, (short) 0, (short) this_card_Ys.length);
+            Util.arrayFillNonAtomic(hosts, (short) 0, (short) (host_count * Consts.HOST_BLOCK_SIZE), (byte) 0x0);
+
         }
         // Invalidate all items
         for (short i = 0; i < Consts.MAX_NUM_PLAYERS; i++) {

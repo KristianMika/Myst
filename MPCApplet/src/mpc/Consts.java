@@ -205,8 +205,10 @@ public class Consts {
     public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry  
     public static final short PUBKEY_YS_SHARE_SIZE = SHARE_DOUBLE_SIZE_CARRY;    // double intermediate result + 1 byte carry  
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
-    public static final short HOST_BLOCK_SIZE = HOST_ID_SIZE + SHARE_DOUBLE_SIZE;
+    public static final short HOST_BLOCK_SIZE = SHORT_SIZE + PUBKEY_YS_SHARE_SIZE; // Size of a pair of a public key and an acl short
     public static final short IV_LEN = (short) 16;
+    public static final short ACL_SIZE = (short) 2;
+
 
     
     public static final short MAX_QUORUMS = 1; // Maximum number of separate quorums this card can participate in
