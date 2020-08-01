@@ -13,13 +13,13 @@ public class StateModel {
     public static final short STATE_UNINITIALIZED                       = (short) -1;
     public static final short STATE_QUORUM_CLEARED                      = (short) 0;
     public static final short STATE_QUORUM_INITIALIZED                  = (short) 1;
-    public static final short STATE_KEYGEN_CLEARED                      = (short) 2;
     public static final short STATE_KEYGEN_PRIVATEGENERATED             = (short) 3;
     public static final short STATE_KEYGEN_COMMITMENTSCOLLECTED         = (short) 4;
     public static final short STATE_KEYGEN_SHARESCOLLECTED              = (short) 5;
     public static final short STATE_KEYGEN_KEYPAIRGENERATED             = (short) 6;
+    public static final short STATE_USER_PUBKEYS_SET                    = (short) 7;
 
-    
+
     public static final short FNC_QuorumContext_GetXi                   = (short) 0xf001;
     public static final short FNC_QuorumContext_GetYi                   = (short) 0xf002;
     public static final short FNC_QuorumContext_Invalidate              = (short) 0xf003;
@@ -79,14 +79,15 @@ public class StateModel {
                 break;
     
             case STATE_QUORUM_INITIALIZED:
+                if (requestedFnc == FNC_QuorumContext_SetUserPubKey) return;
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
                 break;
-                
-            case STATE_KEYGEN_CLEARED:
-                if (requestedFnc == FNC_QuorumContext_InitAndGenerateKeyPair) return;
+
+            case STATE_USER_PUBKEYS_SET:
                 if (requestedFnc == FNC_QuorumContext_SetUserPubKey) return;
-                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED);
-                break;
+                if (requestedFnc == FNC_QuorumContext_InitAndGenerateKeyPair) return;
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+
 
             case STATE_KEYGEN_PRIVATEGENERATED:
                 if (requestedFnc == FNC_QuorumContext_RetrieveCommitment) return;      
@@ -103,6 +104,7 @@ public class StateModel {
             case STATE_KEYGEN_SHARESCOLLECTED:
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
                 break;
+
     
             case STATE_KEYGEN_KEYPAIRGENERATED:
                 if (requestedFnc == FNC_QuorumContext_GetXi)  return;
@@ -138,11 +140,12 @@ public class StateModel {
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
                 break;
             case STATE_QUORUM_INITIALIZED:
-                if (newState == STATE_KEYGEN_CLEARED) return newState;
+                if (newState == STATE_USER_PUBKEYS_SET) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
                 break;
-            case STATE_KEYGEN_CLEARED:
-                if (newState == STATE_KEYGEN_PRIVATEGENERATED) return newState;        
+            case STATE_USER_PUBKEYS_SET:
+                if (newState == STATE_KEYGEN_PRIVATEGENERATED) return newState;
+                if (newState == STATE_USER_PUBKEYS_SET) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
                 break;
             case STATE_KEYGEN_PRIVATEGENERATED:

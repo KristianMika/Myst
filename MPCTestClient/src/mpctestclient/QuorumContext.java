@@ -79,6 +79,7 @@ public class QuorumContext {
 
         hosts.put(new ByteWrapper(newHostId), new HostACL(newHostId, aclByte));
         hostInitialised = true;
+        state.MakeStateTransition(StateModel.STATE_USER_PUBKEYS_SET);
     }
 
     /**
@@ -107,7 +108,6 @@ public class QuorumContext {
         CARD_INDEX_THIS = thisPlayerIndex;
 
         state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
-        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
 
         return true;
     }
@@ -129,12 +129,8 @@ public class QuorumContext {
     public void GenKeyPair() throws NoSuchAlgorithmException, MPCException {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
 
-        Invalidate(false);
-
-        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
-        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
-
         this.KeyGen();
+
         state.MakeStateTransition(StateModel.STATE_KEYGEN_PRIVATEGENERATED);
     }
 

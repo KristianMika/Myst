@@ -74,6 +74,51 @@ public class QuorumContext {
 
     }
 
+    public void SetupNew(short numPlayers, short thisPlayerIndex) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
+        // Reset previous state
+        Reset();
+
+        if (numPlayers > Consts.MAX_NUM_PLAYERS || numPlayers < 1) {
+            ISOException.throwIt(Consts.SW_TOOMANYPLAYERS);
+        }
+        if (thisPlayerIndex >= Consts.MAX_NUM_PLAYERS || thisPlayerIndex < 0) {
+            ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
+        }
+
+        // Setup new state
+        this.NUM_PLAYERS = numPlayers;
+        this.CARD_INDEX_THIS = thisPlayerIndex;
+
+
+        cryptoOps.randomData.generateData(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
+        if (Consts.IS_BACKDOORED_EXAMPLE) {
+            Util.arrayFillNonAtomic(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
+        }
+
+        // TODO: store and setup user authorization keys (if provided)
+
+        // Set state
+        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
+
+    }
+
+    public void Reset() {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
+        Invalidate(true);
+
+        for (short i = 0; i < Consts.MAX_NUM_HOSTS; i++) {
+            host_pub_obj[i] = null;
+        }
+        host_count = 0;
+        // TODO: clear hosts array
+
+        // Restore proper value of modulo_Bn (was possibly erased during the card's reset)
+        cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
+        cryptoOps.aBn.set_from_byte_array((short) (cryptoOps.aBn.length() - (short) MPCCryptoOps.r_for_BigInteger.length), MPCCryptoOps.r_for_BigInteger, (short) 0, (short) MPCCryptoOps.r_for_BigInteger.length);
+        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
+    }
+
     /**
      * Stores a public key with an ACL into the "hosts" byte array.
      * Hosts = [pubKey_1|ACL_1, ... , pubKey_n|ACL_n], where n = host_count
@@ -112,6 +157,7 @@ public class QuorumContext {
         Util.arrayCopyNonAtomic(pubkeySrc, pubkeyOff, hosts, (short) (offset * Consts.HOST_BLOCK_SIZE), Consts.PUBKEY_YS_SHARE_SIZE);
         Util.arrayCopyNonAtomic(pubkeySrc, aclOff, hosts, (short) (offset * Consts.HOST_BLOCK_SIZE + Consts.PUBKEY_YS_SHARE_SIZE), Consts.ACL_SIZE);
 
+        state.MakeStateTransition(StateModel.STATE_USER_PUBKEYS_SET);
         host_count++;
     }
 
@@ -131,7 +177,7 @@ public class QuorumContext {
         short middle = 0;
         while (left <= right) {
 
-             middle = (short) ((short) (left + right ) / 2);
+            middle = (short) ((short) (left + right ) / 2);
 
             byte comp_res = Util.arrayCompare( pubkey_src, pubkeyOffset, hosts, (short) (middle * Consts.HOST_BLOCK_SIZE), Consts.HOST_ID_SIZE);
 
@@ -155,51 +201,6 @@ public class QuorumContext {
         return Util.getShort(hosts, (short) (index * Consts.HOST_BLOCK_SIZE + Consts.PUBKEY_YS_SHARE_SIZE));
     }
 
-    public void SetupNew(short numPlayers, short thisPlayerIndex) {
-        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
-        // Reset previous state
-        Reset();
-
-        if (numPlayers > Consts.MAX_NUM_PLAYERS || numPlayers < 1) {
-            ISOException.throwIt(Consts.SW_TOOMANYPLAYERS);
-        }
-        if (thisPlayerIndex >= Consts.MAX_NUM_PLAYERS || thisPlayerIndex < 0) {
-            ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
-        }
-
-        // Setup new state
-        this.NUM_PLAYERS = numPlayers;
-        this.CARD_INDEX_THIS = thisPlayerIndex;
-
-
-        cryptoOps.randomData.generateData(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
-        if (Consts.IS_BACKDOORED_EXAMPLE) {
-            Util.arrayFillNonAtomic(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
-        }
-
-        // TODO: store and setup user authorization keys (if provided)
-
-        // Set state
-        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
-        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
-    }
-
-    public void Reset() {
-        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
-        Invalidate(true);
-
-        for (short i = 0; i < Consts.MAX_NUM_HOSTS; i++) {
-            host_pub_obj[i] = null;
-        }
-        host_count = 0;
-        // TODO: clear hosts array
-
-        // Restore proper value of modulo_Bn (was possibly erased during the card's reset)
-        cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-        cryptoOps.aBn.set_from_byte_array((short) (cryptoOps.aBn.length() - (short) MPCCryptoOps.r_for_BigInteger.length), MPCCryptoOps.r_for_BigInteger, (short) 0, (short) MPCCryptoOps.r_for_BigInteger.length);
-        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
-    }
-
     short GetState() {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetState);
         return state.GetState();
@@ -215,12 +216,6 @@ public class QuorumContext {
      */
     public void InitAndGenerateKeyPair(boolean bPrepareDecryption) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
-
-        // Invalidate previously generated keypair
-        Invalidate(false);
-
-        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
-        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
 
         pair.genKeyPair();
 
