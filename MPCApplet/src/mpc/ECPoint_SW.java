@@ -72,6 +72,11 @@ public class ECPoint_SW extends mpc.ECPointBase {
         ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
         return -1;
     }
+
+    public short ScalarMultiplication(ECPointBase BasePoint, KeyAgreement ecKeyAgreement, byte[] result, short resultOffset) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+        return -1;
+    }
     
     public void ScalarMultiplication(ECPointBase BasePoint, KeyAgreement ecKeyAgreement, ECPointBase ResultECPoint) {
         ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
@@ -85,8 +90,12 @@ public class ECPoint_SW extends mpc.ECPointBase {
         short len = ScalarMultiplication(BasePoint, value, TempBuffer65);
         ResultECPoint.setW(TempBuffer65, (short) 0, len);
     }
-    
+
     public short ScalarMultiplication(ECPointBase BasePoint, byte[] value, byte[] result) {
+        return ScalarMultiplication(BasePoint, value, result, (short) 0);
+    }
+
+    public short ScalarMultiplication(ECPointBase BasePoint, byte[] value, byte[] result, short resultOffset) {
         short len = BasePoint.getW(TempBuffer65, (short) 0);
         ///* in case BasePoint is different from G, then update of curve is necessary (not used in MPC)
         fnc_ScalarMultiplication_resultPoint.getCurve().setG(TempBuffer65, (short) 0, len);
@@ -94,7 +103,7 @@ public class ECPoint_SW extends mpc.ECPointBase {
         /**/
         fnc_ScalarMultiplication_resultPoint.setW(TempBuffer65, (short) 0, len);
         fnc_ScalarMultiplication_resultPoint.multiplication(value, (short) 0, (short) value.length);
-        len = fnc_ScalarMultiplication_resultPoint.getW(result, (short) 0);
+        len = fnc_ScalarMultiplication_resultPoint.getW(result, resultOffset);
         return len;
     }    
     

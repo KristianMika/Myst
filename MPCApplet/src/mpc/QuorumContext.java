@@ -437,9 +437,9 @@ public class QuorumContext {
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
 
-    public short Encrypt(byte[] plaintext_arr, short plaintext_arr_offset, short plaintext_arr_len, byte[] outArray) {
+    public short Encrypt(byte[] plaintext_arr, short plaintext_arr_offset, short plaintext_arr_len, byte[] outArray, short outOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Encrypt);
-        return cryptoOps.Encrypt(this, plaintext_arr, plaintext_arr_offset, plaintext_arr_len, outArray);
+        return cryptoOps.Encrypt(this, plaintext_arr, plaintext_arr_offset, plaintext_arr_len, outArray, outOffset);
     }
 
     public short DecryptShare(byte[] c1_c2_arr, short c1_c2_arr_offset, short c1_c2_arr_len, byte[] outputArray) {

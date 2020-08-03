@@ -557,7 +557,7 @@ public class CardMPCPlayer implements MPCPlayer {
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B plaintext length | <HOST_ID_SIZE>B host's ID | plaintext | signature
-     * Incoming packet: cipher
+     * Incoming packet: 2B - cipher length | xB cipher | 2B sigLen | yB signature
      */
     @Override
     public byte[] Encrypt(short quorumIndex, byte[] plaintext, byte[] hostId, PrivateKey hostPrivKey)
@@ -567,7 +567,9 @@ public class CardMPCPlayer implements MPCPlayer {
                 Util.concat(Util.concat(packetData, hostId), plaintext));
         ResponseAPDU response = transmit(channel, cmd);
         checkSW(response);
-        return response.getData();
+        byte[] data =  response.getData();
+        int sigOff = 2 + Util.getShort(data, 0);
+        return parseAndVerifySignature(data, 2, sigOff, quorumIndex);
     }
 
     /**

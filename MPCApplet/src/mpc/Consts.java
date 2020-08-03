@@ -154,9 +154,13 @@ public class Consts {
     // KeyGen_RetrieveAggregatedPublicKey
     public static final short PACKET_PARAMS_RETRIEVEYAGG_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_RETRIEVEYAGG_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVEYAGG_HOSTID_OFFSET + HOST_ID_SIZE);
-    // EncryptData params
-    public static final short PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
-    public static final short PACKET_PARAMS_ENCRYPT_DATA_OFFSET = (short) (PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET + 2);
+    // EncryptData params: incoming APDU
+    public static final short PACKET_PARAMS_ENCRYPT_IN_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_ENCRYPT_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_ENCRYPT_IN_DATALENGTH_OFFSET + 2);
+    public static final short PACKET_PARAMS_ENCRYPT_IN_DATA_OFFSET = (short) (PACKET_PARAMS_ENCRYPT_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    // EncryptData params: outgoing APDU
+    public static final short PACKET_PARAMS_ENCRYPT_OUT_CIPHERLENGTH_OFFSET = (short) (0);
+    public static final short PACKET_PARAMS_ENCRYPT_OUT_CIPHER_OFFSET = (short) (PACKET_PARAMS_ENCRYPT_OUT_CIPHERLENGTH_OFFSET + SHORT_SIZE);
     // DecryptData params
     public static final short PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_DECRYPT_DATA_OFFSET = (short) (PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET + 2);

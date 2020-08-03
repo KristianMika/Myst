@@ -176,9 +176,9 @@ public class MPCCryptoOps {
      * @param outArray output array with encrypted data
      * @return length of output data
      */
-    public short Encrypt(QuorumContext quorumCtx, byte[] plaintextArray, short plaintextArrayOffset, short plaintextArrayOffsetLength, byte[] outArray) {
+    public short Encrypt(QuorumContext quorumCtx, byte[] plaintextArray, short plaintextArrayOffset, short plaintextArrayOffsetLength, byte[] outArray, short outOffset) {
        
-        short outOffset = (short) 0;
+        short outLen = (short) 0;
         
         // Check input data validity
         if (plaintextArrayOffsetLength != Consts.PUBKEY_YS_SHARE_SIZE) {
@@ -221,17 +221,17 @@ public class MPCCryptoOps {
         // Gen c1 now 
         if (ECPointBase.ECMultiplHelper != null) {
             // Use prepared engine - cards with native support for EC
-            outOffset += placeholder.ScalarMultiplication(GenPoint, ECPointBase.ECMultiplHelper, outArray); // yG // 129ms 
+            outLen += placeholder.ScalarMultiplication(GenPoint, ECPointBase.ECMultiplHelper, outArray, outOffset); // yG // 129ms
         }
         else {
             // Use this with JCMathLib
-            outOffset += placeholder.ScalarMultiplication(GenPoint, y_Bn, outArray); // yG 
+            outLen += placeholder.ScalarMultiplication(GenPoint, y_Bn, outArray, outOffset); // yG
         }
         PM.check(PM.TRAP_CRYPTOPS_ENCRYPT_6);
 
-        outOffset += c2_EC.getW(outArray, outOffset); // append c2_EC behind yG
+        outLen += c2_EC.getW(outArray, (short) (outOffset + outLen)); // append c2_EC behind yG
 
-        return outOffset;
+        return outLen;
     }
 
     /**

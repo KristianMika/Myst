@@ -22,7 +22,6 @@ public class MPCApplet extends Applet {
     // TODO: Unify response codes
     // TODO: Remove IS_BACKDOORED_EXAMPLE
     // TODO: remove boolean variables
-    // TODO: consider unification of STATE_QUORUM_INITIALIZED and STATE_KEYGEN_CLEARED
     // TODO: Rename Bignat variables
     // TODO: Capture all exceptions in process() and reset state after several detected exceptions to prevent repeated attacks
     // TODO: unify all member attributes under m_xxx naming and camelCase
@@ -743,19 +742,18 @@ public class MPCApplet extends Applet {
      * performed directly on the host, or remotely by any party holding the
      * public key, hence there is no need to perform it in a distributed manner.
      *
-     * @param apdu Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B plaintext length | <HOST_ID_SIZE>B host's ID | plaintext | signature
-     *             Outgoing packet: cipher
+     * @param apdu Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B plaintext length |
+     *                              <HOST_ID_SIZE>B host's ID | plaintext | signature
+     *             Outgoing packet: 2B - cipher length | xB cipher | 2B sigLen | yB signature
      */
-    // TODO: USE CONSTS FOR OFFSETS
-    // TODO: Sign outgoing packet
     void EncryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_ENCRYPT, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
-        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET));
+        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_IN_DATALENGTH_OFFSET));
 
-        short hostIdOff = (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_DATALENGTH_OFFSET + 2);
+        short hostIdOff = (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_IN_HOSTID_OFFSET);
 
         // Verify packet signature
         verifySignature(apdubuf, quorumCtx, (short) (hostIdOff + Consts.HOST_ID_SIZE + dataLen), hostIdOff);
@@ -764,8 +762,15 @@ public class MPCApplet extends Applet {
         short hostIndex = quorumCtx.FindHost(apdubuf, hostIdOff);
         quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_Encrypt, hostIndex);
 
-        dataLen = quorumCtx.Encrypt(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_DATA_OFFSET + Consts.HOST_ID_SIZE),
-                dataLen, apdubuf);
+        dataLen = quorumCtx.Encrypt(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_ENCRYPT_IN_DATA_OFFSET),
+                dataLen, apdubuf, Consts.PACKET_PARAMS_ENCRYPT_OUT_CIPHER_OFFSET);
+        Util.setShort(apdubuf, Consts.PACKET_PARAMS_ENCRYPT_OUT_CIPHERLENGTH_OFFSET, dataLen);
+
+        short sigLen = quorumCtx.signApdubuffer(apdubuf, Consts.PACKET_PARAMS_ENCRYPT_OUT_CIPHER_OFFSET,
+                dataLen, apdubuf, (short)(2 + dataLen + 2));
+
+        Util.setShort(apdubuf, (short)(2 + dataLen), sigLen);
+        dataLen += 2 + 2 + sigLen;
 
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
