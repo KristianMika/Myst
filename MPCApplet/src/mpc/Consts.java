@@ -7,7 +7,7 @@ package mpc;
 public class Consts {
     // Manually updated version of corresponding git commit
     public final static byte[] GIT_COMMIT_MANUAL = {(byte) 0x01, (byte) 0x14, (byte) 0x20, (byte) 0xaf};
-            
+
     // MAIN INSTRUCTION CLASS
     public final static byte CLA_MPC				= (byte) 0xB0;
 
@@ -21,7 +21,7 @@ public class Consts {
     public final static byte INS_SET_BACKDOORED_EXAMPLE         = (byte) 0x05;
     public final static byte INS_TESTECC                        = (byte) 0x06;
     public final static byte INS_QUORUM_REMOVE                  = (byte) 0x07;
-    
+
     public final static byte INS_PERSONALIZE_INITIALIZE         = (byte) 0x08;
     public final static byte INS_PERSONALIZE_SET_USER_AUTH_PUBKEY = (byte) 0x09;
 
@@ -38,14 +38,14 @@ public class Consts {
     public final static byte INS_KEYPROPAGATION_RETRIEVE_PRIVKEY_SHARES = (byte) 0x20;
     public final static byte INS_KEYPROPAGATION_SET_PRIVKEY_SHARES      = (byte) 0x21;
     public final static byte INS_KEYPROPAGATION_RECONSTRUCT_PRIVATEKEY  = (byte) 0x22;
-    
+
 
     // Encryption/Decryption Operations
     public final static byte INS_ENCRYPT			= (byte) 0x50;
     public final static byte INS_DECRYPT			= (byte) 0x51;
     public final static byte INS_ECDH_EXCHANGE = (byte) 0x52;
-    
-    
+
+
     public final static byte INS_GENERATE_RANDOM                = (byte) 0x55;
 
     // Signing Operations
@@ -61,11 +61,11 @@ public class Consts {
     //public final static byte BUGBUG_INS_SIGN_RETRIEVE_R		= (byte) 0x78; // BUGBUG: only for testing, remove 
     public final static byte INS_SIGN                           = (byte) 0x79;
     public final static byte INS_SIGN_GET_CURRENT_COUNTER       = (byte) 0x7a;
-    
-            
+
+
     //Low level Operations
     public final static byte INS_ADDPOINTS						= (byte) 0x80;
-    
+
     // Custom error response codes
     public static final short SW_SUCCESS                        = (short) 0x9000;
     public static final short SW_TOOMANYPLAYERS                 = (short) 0x8000;
@@ -98,8 +98,8 @@ public class Consts {
     public static final short SW_DH_EXCHANGE_SKIPPED            = (short) 0x8019;
     public static final short SW_DUPLICATE_HOST_ID              = (short) 0x801a;
 
-    
-            
+
+
     public static final short SIGN_COUNTER_LENGTH = (short) 2;
     public static final short PACKET_SIZE_OFFSET = (short) 4;
     public static final short SHORT_SIZE = (short) 2;
@@ -107,12 +107,12 @@ public class Consts {
     public static final short HOST_ID_SIZE = 4;
     public static final short APDU_SIG_NONCE_SIZE = (short) 10;
 
-    
-    
+
+
     public static final short PACKET_PARAMS_OPCODE_OFFSET = (short) 0;
     public static final short PACKET_PARAMS_LENGTH_OFFSET = (short) (PACKET_PARAMS_OPCODE_OFFSET + 1);
     public static final short PACKET_PARAMS_CTXINDEX_OFFSET = (short) (PACKET_PARAMS_LENGTH_OFFSET + 2);
-    
+
     // SetupNewQuorum params
     public static final short PACKET_PARAMS_SETUPNEWQUORUM_NUMPLAYERS_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SETUPNEWQUORUM_THISPLAYERINDEX_OFFSET = (short) (PACKET_PARAMS_SETUPNEWQUORUM_NUMPLAYERS_OFFSET + 2);
@@ -164,8 +164,10 @@ public class Consts {
     // DecryptData params
     public static final short PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_DECRYPT_DATA_OFFSET = (short) (PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET + 2);
-    // Sign_RetrieveRandomRi params
-    public static final short PACKET_PARAMS_SIGNRETRIEVERI_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    // Sign_RetrieveRandomRi params: incoming apdu
+    public static final short PACKET_PARAMS_SIGNRETRIEVERI_IN_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_SIGNRETRIEVERI_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_SIGNRETRIEVERI_IN_COUNTER_OFFSET + SHORT_SIZE);
+    // Sign_RetrieveRandomRi params: outgoing apdu
     // Sign_RetrieveRandomRi params
     public static final short PACKET_PARAMS_SIGN_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     //public static final short PACKET_PARAMS_SIGN_COUNTER_OFFSET = (short) (PACKET_PARAMS_SIGN_COUNTERLENGTH_OFFSET + 2);
@@ -179,11 +181,11 @@ public class Consts {
     public static final short PERF_DECRYPT                      = (short) 0x7770;
     public static final short PERF_ENCRYPT                      = (short) 0x6660;
     public static final short PERF_SIGN                         = (short) 0x5550;
-    
+
     // Global applet settings
     public static final short MAX_NUM_PLAYERS                   = (short) 15;   // Maximum number of allowed players
     public static final short MAX_NUM_HOSTS                     = (short) 5; // Maximum number of allowed hosts
-    
+
     public final static boolean COMPUTE_Y_ONTHEFLY = true; // on-the-fly computation of aggregated pulic key is only option
     public final static boolean PLAYERS_IN_RAM = true; // if true, player (participant) info is stored in RAM => faster, consuming RAM and will NOT survive card reset
     public final static boolean IS_BACKDOORED_EXAMPLE = false; // if true, then applet will not follow protocol but generates backdoored applet instead
@@ -204,17 +206,17 @@ public class Consts {
     public static final byte CARD_ID_LONG_LENGTH = (byte) 16;   // Length of unique card ID generated during applet install
 
     public static final short BASIC_ECC_LENGTH = (short) 32; // 32 => 256b ECC
-    public static final short SHARE_BASIC_SIZE = BASIC_ECC_LENGTH;       
+    public static final short SHARE_BASIC_SIZE = BASIC_ECC_LENGTH;
     public static final short SHARE_DOUBLE_SIZE = (short) (2 * SHARE_BASIC_SIZE);           // intermediate result of multiplication operation with shares (double bit length)
-    public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry  
-    public static final short PUBKEY_YS_SHARE_SIZE = SHARE_DOUBLE_SIZE_CARRY;    // double intermediate result + 1 byte carry  
+    public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry
+    public static final short PUBKEY_YS_SHARE_SIZE = SHARE_DOUBLE_SIZE_CARRY;    // double intermediate result + 1 byte carry
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
     public static final short HOST_BLOCK_SIZE = SHORT_SIZE + PUBKEY_YS_SHARE_SIZE; // Size of a pair of a public key and an acl short
     public static final short IV_LEN = (short) 16;
     public static final short ACL_SIZE = (short) 2;
 
 
-    
+
     public static final short MAX_QUORUMS = 1; // Maximum number of separate quorums this card can participate in
-    
+
 }

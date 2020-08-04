@@ -233,9 +233,8 @@ public class CardMPCPlayer implements MPCPlayer {
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B short i | <HOST_ID_SIZE>B host's ID | signature
-     * Incoming packet: data
+     * Incoming packet: 65B RI | 2B signature Length | yB signature
      */
-    // TODO: Verify signature
     private byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, i);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN_RETRIEVE_RI, hostPrivKey, (byte) 0x00, (byte) 0x00, Util.concat(packetData, hostId));
@@ -243,7 +242,9 @@ public class CardMPCPlayer implements MPCPlayer {
 
         ///We do nothing with the key, as we just use the Aggregated R in the test cases
         checkSW(response);
-        return response.getData();
+        byte[] data = response.getData();
+
+        return parseAndVerifySignature(data, 0, 65, quorumIndex);
     }
 
     private ResponseAPDU transmit(CardChannel channel, CommandAPDU cmd)

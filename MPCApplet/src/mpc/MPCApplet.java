@@ -840,25 +840,28 @@ public class MPCApplet extends Applet {
      *
      * @apdu input apdu
      * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B short i | <HOST_ID_SIZE>B host's ID | signature
-     * Ougoing packet: data
+     * Ougoing packet: 65B RI | 2B signature Length | yB signature
      */
-    // TODO: USE CONSTS FOR OFFSETS
-    // TODO: Sign outgoing packet
     void Sign_RetrieveRandomRi(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_SIGN_RETRIEVE_RI, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
 
-        short hostIdOf = (short) (paramsOffset + Consts.BYTE_SIZE + 3 * Consts.SHORT_SIZE);
+        short hostIdOf = (short) (paramsOffset + Consts.PACKET_PARAMS_SIGNRETRIEVERI_IN_HOSTID_OFFSET);
         // Verify packet signature
         verifySignature(apdubuf, quorumCtx, (short) (hostIdOf + Consts.HOST_ID_SIZE), hostIdOf);
         short hostIdIndex = quorumCtx.FindHost(apdubuf, hostIdOf);
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi, hostIdIndex);
 
-        short counter = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGNRETRIEVERI_COUNTER_OFFSET));
+        short counter = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGNRETRIEVERI_IN_COUNTER_OFFSET));
         short dataLen = quorumCtx.Sign_RetrieveRandomRi(counter, apdubuf);
+
+        short sigLen= quorumCtx.signApdubuffer(apdubuf, (short) 0, dataLen, apdubuf, (short) (dataLen + 2));
+        Util.setShort(apdubuf, dataLen, sigLen);
+        dataLen += Consts.SHORT_SIZE + sigLen;
+
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
 
