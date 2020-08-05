@@ -662,15 +662,16 @@ public class CardMPCPlayer implements MPCPlayer {
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - round | 2B plaintext + Rn length | <HOST_ID_SIZE>B host's ID | plaintext | Rn | signature
-     * Incoming packet: signature of the data
+     * Incoming packet: 2B Signature Length | XB signature | 2B APDU signature length | APDU signature
      */
-    // TODO: verify signature
     public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN, hostPrivKey, (byte) round, (byte) 0x00, Util.concat(Util.concat(packetData, hostId), Util.concat(plaintext, Rn)));
         ResponseAPDU response = transmit(channel, cmd);
         checkSW(response);
-        return response.getData();
+        byte[] data =  response.getData();
+        int sigOff = 2 + Util.getShort(data, 0);
+        return parseAndVerifySignature(data, 2, sigOff, quorumIndex);
     }
 
     /**

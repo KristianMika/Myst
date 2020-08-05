@@ -871,26 +871,34 @@ public class MPCApplet extends Applet {
      *
      * @apdu input data
      * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - round | 2B plaintext + Rn length | <HOST_ID_SIZE>B host's ID | plaintext | Rn | signature
-     * Outgoing packet: signature of the data
+     * Outgoing packet: 2B Signature Length | XB signature | 2B APDU signature length | APDU signature
      */
-    // TODO: USE CONSTS FOR OFFSETS
-    // TODO:Sign outgoing packet
     void Sign(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_SIGN, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
-        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_DATALENGTH_OFFSET));
-        short hostIdOff = (short) (paramsOffset + Consts.BYTE_SIZE + 4 * Consts.SHORT_SIZE);
+        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_IN_DATALENGTH_OFFSET));
+        short hostIdOff = (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_IN_HOSTID_OFFSET);
 
         //Verify packet signature
         verifySignature(apdubuf, quorumCtx, (short) (hostIdOff + Consts.HOST_ID_SIZE + dataLen), hostIdOff);
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_Sign, quorumCtx.FindHost(apdubuf, hostIdOff));
 
-        m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_COUNTER_OFFSET));
-        dataLen = quorumCtx.Sign(m_cryptoOps.temp_sign_counter, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_DATA_OFFSET + Consts.HOST_ID_SIZE), dataLen, apdubuf, (short) 0);
-        apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
+        m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_IN_COUNTER_OFFSET));
+        dataLen = quorumCtx.Sign(m_cryptoOps.temp_sign_counter, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_IN_DATA_OFFSET), dataLen, apdubuf, (short) 2);
+
+        // Create outgoing packet
+        Util.setShort(apdubuf, Consts.PACKET_PARAMS_SIGN_OUT_DATALENGTH_OFFSET, dataLen);
+        short sigLen = quorumCtx.signApdubuffer(apdubuf, Consts.PACKET_PARAMS_SIGN_OUT_DATA_OFFSET,
+                dataLen, apdubuf, (short) ( Consts.SHORT_SIZE + dataLen + Consts.SHORT_SIZE));
+
+        dataLen += Consts.SHORT_SIZE;
+        Util.setShort(apdubuf, dataLen, sigLen);
+        dataLen += Consts.SHORT_SIZE + sigLen;
+
+        apdu.setOutgoingAndSend((short) 0, dataLen);
     }
 
     /**

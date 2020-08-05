@@ -368,7 +368,7 @@ public class MPCCryptoOps {
         short outOffset = outputArrayOffset;
         Util.arrayCopyNonAtomic(s_Bn.as_byte_array(), (short) 0, outputArray, outOffset, (short) s_Bn.as_byte_array().length);
         outOffset += (short) s_Bn.as_byte_array().length;
-        Util.arrayCopyNonAtomic(e_Bn.as_byte_array(), (short) 0, outputArray, (short) s_Bn.as_byte_array().length, (short) e_Bn.as_byte_array().length);
+        Util.arrayCopyNonAtomic(e_Bn.as_byte_array(), (short) 0, outputArray, outOffset, (short) e_Bn.as_byte_array().length);
         outOffset += (short) e_Bn.as_byte_array().length;
         return (short) (outOffset - outputArrayOffset);
     }

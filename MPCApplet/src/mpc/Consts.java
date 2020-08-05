@@ -168,11 +168,16 @@ public class Consts {
     public static final short PACKET_PARAMS_SIGNRETRIEVERI_IN_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SIGNRETRIEVERI_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_SIGNRETRIEVERI_IN_COUNTER_OFFSET + SHORT_SIZE);
     // Sign_RetrieveRandomRi params: outgoing apdu
-    // Sign_RetrieveRandomRi params
-    public static final short PACKET_PARAMS_SIGN_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
-    //public static final short PACKET_PARAMS_SIGN_COUNTER_OFFSET = (short) (PACKET_PARAMS_SIGN_COUNTERLENGTH_OFFSET + 2);
-    public static final short PACKET_PARAMS_SIGN_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_SIGN_COUNTER_OFFSET + SIGN_COUNTER_LENGTH);
-    public static final short PACKET_PARAMS_SIGN_DATA_OFFSET = (short) (PACKET_PARAMS_SIGN_DATALENGTH_OFFSET + 2);
+    // Sign params: incoming apdu
+    public static final short PACKET_PARAMS_SIGN_IN_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_SIGN_IN_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_SIGN_IN_COUNTER_OFFSET + SIGN_COUNTER_LENGTH);
+    public static final short PACKET_PARAMS_SIGN_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_SIGN_IN_DATALENGTH_OFFSET + SHORT_SIZE);
+    public static final short PACKET_PARAMS_SIGN_IN_DATA_OFFSET = (short) (PACKET_PARAMS_SIGN_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    // Sign params: outgoing apdu
+    public static final short PACKET_PARAMS_SIGN_OUT_DATALENGTH_OFFSET = (short) 0;
+    public static final short PACKET_PARAMS_SIGN_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_SIGN_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
+
+
     public static final short PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SET_USER_AUTH_PUBKEY = (short) (PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE + 2);
 
