@@ -415,8 +415,8 @@ public class MPCCryptoOps {
      * @param outputArray buffer for signed share
      * @return length of signed share
      */
-    public short Gen_R_i(byte[] counter, byte[] cardSecretArray, byte[] outputArray) {
-        return placeholder.ScalarMultiplication(GenPoint, PRF(counter, cardSecretArray), outputArray); // yG 
+    public short Gen_R_i(byte[] counter, byte[] cardSecretArray, byte[] outputArray, short outputOffset) {
+        return placeholder.ScalarMultiplication(GenPoint, PRF(counter, cardSecretArray), outputArray, outputOffset); // yG
     }
 
     /**
@@ -455,64 +455,84 @@ public class MPCCryptoOps {
     }
 
     /**
-     * Produces SIG_Cpriv(plaintext, nonce)
-     *
-     * @param plaintext plaintext to sign
-     * @param plainOff plaintext offset
-     * @param plainLen plaintext length
-     * @param nonce nonce byte array
-     * @param nonceOff nonce offset
-     * @param nonceLen nonce length
-     * @param dest destination byte array
-     * @param destOff destination offset
-     * @param privKey card's private key
+     * Computes an ECDSA signature from the source byte arrays and stores it to the destination byte array.
+     * @param src1 the first plaintext byte array
+     * @param src1Off offset to the first plaintext
+     * @param src1Len length of the first plaintext
+     * @param src2 the second byte array
+     * @param src2Off offset to the second plaintext
+     * @param src2Len length of the second plaintext
+     * @param dst destination byte array
+     * @param dst_off destination offset
+     * @param privKey private key that is used for signature
      * @return length of the signature
      */
-    short computeECDSASignatureWNonce(byte[] plaintext, short plainOff, short plainLen,byte[] nonce, short nonceOff,
-                                      short nonceLen, byte[] dest, short destOff, ECPrivateKey privKey) {
+    short signECDSA(byte[] src1, short src1Off, short src1Len, byte[] src2, short src2Off, short src2Len, byte[] dst,
+                   short dst_off, ECPrivateKey privKey) {
 
         Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
         ECDSAObject.init(privKey, Signature.MODE_SIGN);
-        ECDSAObject.update(nonce, nonceOff, nonceLen);
-        return ECDSAObject.sign(plaintext, plainOff, plainLen, dest, destOff);
+        ECDSAObject.update(src1, src1Off, src1Len);
+        return ECDSAObject.sign(src2, src2Off, src2Len, dst, dst_off);
     }
 
-    short PerformECDHExchange(byte[] apdubuf, short keyOffset, short keyLength) {
+    short signECDSA(byte[] src1, short src1Off, short src1Len, byte[] src2, short src2Off, short src2Len, byte[] src3,
+                    short src3Off, short src3Len, byte[] dst, short dst_off, ECPrivateKey privKey) {
 
-        // Generate this card's ephemeral key pair
-        javacard.security.KeyPair ephemKeyPair = new javacard.security.KeyPair(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_256);
-        ephemKeyPair.genKeyPair();
+        Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        ECDSAObject.init(privKey, Signature.MODE_SIGN);
+        ECDSAObject.update(src1, src1Off, src1Len);
+        ECDSAObject.update(src2, src2Off, src2Len);
+        return ECDSAObject.sign(src3, src3Off, src3Len, dst, dst_off);
+    }
 
-        javacard.security.KeyAgreement agreement = javacard.security.KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DHC_PLAIN, false);
-        agreement.init(ephemKeyPair.getPrivate());
 
-        byte[] sharedSecret = new byte[256/8];
-        agreement.generateSecret(apdubuf, keyOffset, keyLength, sharedSecret, (short) 0);
+    /**
+     * Generates this card's session key, copies its public part to the destination byte array and computes a shared
+     * session key for later use.
+     *
+     * @param src byte array with the public key
+     * @param keyOffset public key offset
+     * @param keyLength public key length
+     * @param dest destination byte array
+     * @param destOff destination offset
+     * @return length of this card's public key
+     */
+    short ExchangeKey(byte[] src, short keyOffset, short keyLength, byte[] dest, short destOff) {
 
+        KeyPair cardKey = new KeyPair(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_256);
+        cardKey.genKeyPair();
+
+        KeyAgreement agreement = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DHC_PLAIN, false);
+        agreement.init(cardKey.getPrivate());
+
+        byte[] sharedSecret = new byte[Consts.BASIC_ECC_LENGTH];
+        agreement.generateSecret(src, keyOffset, keyLength, sharedSecret, (short) 0);
 
         md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
         md.update(sharedSecret, (short) 0, (short) sharedSecret.length);
 
         // Reconstruct the server's pub key
         ECPublicKey serversPubKey = (ECPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, false);
-        serversPubKey.setW(apdubuf, keyOffset, keyLength);
+        serversPubKey.setW(src, keyOffset, keyLength);
 
-        md.update(apdubuf, keyOffset, keyLength);
+        md.update(src, keyOffset, keyLength);
 
         // copy the pub key to buffer
-        short pubKeyLen = ((ECPublicKey) ephemKeyPair.getPublic()).getW(apdubuf, (short) 2);
-        Util.setShort(apdubuf, (short) 0, pubKeyLen);
+        short pubKeyLen = ((ECPublicKey) cardKey.getPublic()).getW(dest, destOff);
 
-        ecdhSharedSecret = new byte[256 / 8];
-        md.doFinal(apdubuf, (short) 2, pubKeyLen, ecdhSharedSecret, (short) 0);
+        ecdhSharedSecret = new byte[Consts.BASIC_ECC_LENGTH];
+
+        // add this card's key part
+        md.doFinal(dest, destOff, pubKeyLen, ecdhSharedSecret, (short) 0);
         ecdhSharedSecretValid = true;
 
-        return (short) (pubKeyLen + 2);
+        return pubKeyLen;
 
  }
 
     /**
-     * 2B cipher length | xB cipher | 16B IV
+     * Encrypts data in the source byte array using AES and an established session key.
      * @param source byte array
      * @param dataOffset of the plaintext
      * @param dataLength plaintext length
@@ -527,14 +547,14 @@ public class MPCCryptoOps {
         }
         ecdhSharedSecretValid = false;
 
-        byte[] secret16B = new byte[16];
-        Util.arrayCopyNonAtomic(ecdhSharedSecret, (short) 0, secret16B, (short) 0, (short) 16);
+        byte[] sharedKey = new byte[Consts.AES_KEY_LEN];
+        Util.arrayCopyNonAtomic(ecdhSharedSecret, (short) 0, sharedKey, (short) 0, (short) sharedKey.length);
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
 
-        aesKey.setKey(secret16B, (short) 0);
+        aesKey.setKey(sharedKey, (short) 0);
         aesCipher = Cipher.getInstance(Cipher.ALG_AES_CBC_ISO9797_M2, false);
 
-        byte[] aesIv = new byte[16];
+        byte[] aesIv = new byte[Consts.IV_LEN];
         randomData.generateData(aesIv, (short) 0, (short) aesIv.length);
 
         aesCipher.init(aesKey, Cipher.MODE_ENCRYPT, aesIv, (short) 0, (short) aesIv.length);
@@ -542,6 +562,7 @@ public class MPCCryptoOps {
         short len = aesCipher.doFinal(source, dataOffset, dataLength, destination, destinationOffset);
 
         Util.arrayCopy(aesIv, (short) 0, destination, (short) (destinationOffset + len), (short) aesIv.length);
+        len += Consts.IV_LEN;
 
         return len;
     }

@@ -113,6 +113,8 @@ public class Consts {
     public static final short PACKET_PARAMS_LENGTH_OFFSET = (short) (PACKET_PARAMS_OPCODE_OFFSET + 1);
     public static final short PACKET_PARAMS_CTXINDEX_OFFSET = (short) (PACKET_PARAMS_LENGTH_OFFSET + 2);
 
+    // General params
+    public static final short PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET = (short) 0;
     // SetupNewQuorum params
     public static final short PACKET_PARAMS_SETUPNEWQUORUM_NUMPLAYERS_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SETUPNEWQUORUM_THISPLAYERINDEX_OFFSET = (short) (PACKET_PARAMS_SETUPNEWQUORUM_NUMPLAYERS_OFFSET + 2);
@@ -133,27 +135,33 @@ public class Consts {
     public static final short PACKET_PARAMS_KEYGENINIT_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENINIT_NONCE_OFFSET = (short) (PACKET_PARAMS_KEYGENINIT_HOSTID_OFFSET + HOST_ID_SIZE);
     public static final short PACKET_PARAMS_KEYGENINIT_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_KEYGENINIT_NONCE_OFFSET + APDU_SIG_NONCE_SIZE);
-    // KeyGen_RetrieveCommitment
-    public static final short PACKET_PARAMS_RETRIEVECOMMITMENT_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
-    public static final short PACKET_PARAMS_RETRIEVECOMMITMENT_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVECOMMITMENT_HOSTID_OFFSET + HOST_ID_SIZE);
+    // KeyGen_RetrieveCommitment: incoming APDU
+    public static final short PACKET_PARAMS_RETRIEVECOMMITMENT_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_RETRIEVECOMMITMENT_IN_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVECOMMITMENT_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    // KeyGen_RetrieveCommitment: outgoing APDU
+    public static final short PACKET_PARAMS_RETRIEVECOMMITMENT_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
     // KeyGen_StoreCommitment params
     public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_PLAYERID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENTLENGTH_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_PLAYERID_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_HOSTID_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENTLENGTH_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_NONCE_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_HOSTID_OFFSET + HOST_ID_SIZE);
     public static final short PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENT_OFFSET = (short) (PACKET_PARAMS_KEYGENSTORECOMMITMENT_NONCE_OFFSET + APDU_SIG_NONCE_SIZE);
-    //KeyGen_RetrievePublicKey
-    public static final short PACKET_PARAMS_RETRIEVEPUBKEY_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
-    public static final short PACKET_PARAMS_RETRIEVEPUBKEY_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVEPUBKEY_HOSTID_OFFSET + HOST_ID_SIZE);
+    //KeyGen_RetrievePublicKey: incoming apdu
+    public static final short PACKET_PARAMS_RETRIEVEPUBKEY_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_RETRIEVEPUBKEY_IN_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVEPUBKEY_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    //KeyGen_RetrievePublicKey: outgoing apdu
+    public static final short PACKET_PARAMS_RETRIEVEPUBKEY_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
     // KeyGen_StorePublicKey params
     public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_PLAYERID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEYLENGTH_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_PLAYERID_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_HOSTID_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEYLENGTH_OFFSET + 2);
     public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_NONCE_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_HOSTID_OFFSET + HOST_ID_SIZE);
     public static final short PACKET_PARAMS_KEYGENSTOREPUBKEY_PUBKEY_OFFSET = (short) (PACKET_PARAMS_KEYGENSTOREPUBKEY_NONCE_OFFSET + APDU_SIG_NONCE_SIZE);
-    // KeyGen_RetrieveAggregatedPublicKey
-    public static final short PACKET_PARAMS_RETRIEVEYAGG_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
-    public static final short PACKET_PARAMS_RETRIEVEYAGG_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVEYAGG_HOSTID_OFFSET + HOST_ID_SIZE);
+    // KeyGen_RetrieveAggregatedPublicKey: incoming APDU
+    public static final short PACKET_PARAMS_RETRIEVEYAGG_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_RETRIEVEYAGG_IN_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_RETRIEVEYAGG_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    // KeyGen_RetrieveAggregatedPublicKey: outgoing APDU
+    public static final short PACKET_PARAMS_RETRIEVEYAGG_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
     // EncryptData params: incoming APDU
     public static final short PACKET_PARAMS_ENCRYPT_IN_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_ENCRYPT_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_ENCRYPT_IN_DATALENGTH_OFFSET + 2);
@@ -161,25 +169,41 @@ public class Consts {
     // EncryptData params: outgoing APDU
     public static final short PACKET_PARAMS_ENCRYPT_OUT_CIPHERLENGTH_OFFSET = (short) (0);
     public static final short PACKET_PARAMS_ENCRYPT_OUT_CIPHER_OFFSET = (short) (PACKET_PARAMS_ENCRYPT_OUT_CIPHERLENGTH_OFFSET + SHORT_SIZE);
-    // DecryptData params
-    public static final short PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
-    public static final short PACKET_PARAMS_DECRYPT_DATA_OFFSET = (short) (PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET + 2);
+    // DecryptData params: incoming apdu
+    public static final short PACKET_PARAMS_DECRYPT_IN_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
+    public static final short PACKET_PARAMS_DECRYPT_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_DECRYPT_IN_DATALENGTH_OFFSET + SHORT_SIZE);
+    public static final short PACKET_PARAMS_DECRYPT_IN_DATA_OFFSET = (short) (PACKET_PARAMS_DECRYPT_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    // DecryptData params: outgoing apdu
+    public static final short PACKET_PARAMS_DECRYPT_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
     // Sign_RetrieveRandomRi params: incoming apdu
     public static final short PACKET_PARAMS_SIGNRETRIEVERI_IN_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SIGNRETRIEVERI_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_SIGNRETRIEVERI_IN_COUNTER_OFFSET + SHORT_SIZE);
     // Sign_RetrieveRandomRi params: outgoing apdu
+    public static final short PACKET_PARAMS_SIGNRETRIEVERI_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
     // Sign params: incoming apdu
     public static final short PACKET_PARAMS_SIGN_IN_COUNTER_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SIGN_IN_DATALENGTH_OFFSET = (short) (PACKET_PARAMS_SIGN_IN_COUNTER_OFFSET + SIGN_COUNTER_LENGTH);
     public static final short PACKET_PARAMS_SIGN_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_SIGN_IN_DATALENGTH_OFFSET + SHORT_SIZE);
     public static final short PACKET_PARAMS_SIGN_IN_DATA_OFFSET = (short) (PACKET_PARAMS_SIGN_IN_HOSTID_OFFSET + HOST_ID_SIZE);
     // Sign params: outgoing apdu
-    public static final short PACKET_PARAMS_SIGN_OUT_DATALENGTH_OFFSET = (short) 0;
-    public static final short PACKET_PARAMS_SIGN_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_SIGN_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
+    public static final short PACKET_PARAMS_SIGN_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
+    // GenerateRandom params: incoming apdu
+    public static final short PACKET_PARAMS_GENERATERANDOM_IN_LENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + SHORT_SIZE);
+    public static final short PACKET_PARAMS_GENERATERANDOM_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_GENERATERANDOM_IN_LENGTH_OFFSET + SHORT_SIZE);
+    // GenerateRandom params: outgoing apdu
+    public static final short PACKET_PARAMS_GENERATERANDOM_OUT_DATA_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
+    // exchangeKey params: incoming apdu
+    public static final short PACKET_PARAMS_EXCHANGEKEY_IN_KEYLENGTH_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + SHORT_SIZE);
+    public static final short PACKET_PARAMS_EXCHANGEKEY_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_EXCHANGEKEY_IN_KEYLENGTH_OFFSET + SHORT_SIZE);
+    public static final short PACKET_PARAMS_EXCHANGEKEY_IN_HOSTKEY_OFFSET = (short) (PACKET_PARAMS_EXCHANGEKEY_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    // exchangeKey params: outgoing apdu
+    public static final short PACKET_PARAMS_EXCHANGEKEY_OUT_CARDKEY_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
 
 
     public static final short PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + 2);
     public static final short PACKET_PARAMS_SET_USER_AUTH_PUBKEY = (short) (PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE + 2);
+    // GenerateSuccessApdu params
+    public static final short PACKET_PARAMS_SUCCESS_APDU_NONCE_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
 
 
     // Performance-related debugging response codes
@@ -219,6 +243,7 @@ public class Consts {
     public static final short HOST_BLOCK_SIZE = SHORT_SIZE + PUBKEY_YS_SHARE_SIZE; // Size of a pair of a public key and an acl short
     public static final short IV_LEN = (short) 16;
     public static final short ACL_SIZE = (short) 2;
+    public static final short AES_KEY_LEN = (short) 16;
 
 
 

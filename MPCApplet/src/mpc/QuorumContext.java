@@ -41,11 +41,16 @@ public class QuorumContext {
 
     private final HostACL acl = new HostACL();
 
+    private byte[] thisQuorumI = new byte[Consts.SHORT_SIZE];
 
-    public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOps cryptoOperations) {
+
+    public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOps cryptoOperations, short thisQuorumI) {
         cryptoOps = cryptoOperations;
         signature_counter = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         signature_secret_seed = new byte[Consts.SECRET_SEED_SIZE];
+
+        // Stores this quorum index as a byte array
+        Util.setShort(this.thisQuorumI, (short) 0, thisQuorumI);
 
         theCurve = curve;
         this.pair = theCurve.newKeyPair(this.pair);
@@ -447,14 +452,14 @@ public class QuorumContext {
         return cryptoOps.DecryptShare(this, c1_c2_arr, c1_c2_arr_offset, outputArray);
     }
 
-    public short Sign_RetrieveRandomRi(short counter, byte[] buffer) {
+    public short Sign_RetrieveRandomRi(short counter, byte[] buffer, short bufferOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
         // Counter must be strictly increasing, check
         if (counter <= signature_counter_short) {
             ISOException.throwIt(Consts.SW_INVALIDCOUNTER);
         }
         signature_counter_short = counter;
-        return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(signature_counter_short), signature_secret_seed, buffer);
+        return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(signature_counter_short), signature_secret_seed, buffer, bufferOffset);
     }
 
     public short Sign(Bignat counter, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
@@ -497,30 +502,49 @@ public class QuorumContext {
     }
 
     /**
-     *
+     * Signs Apdu and appends the signature signature length with signature after the data
+     * S(data)_privKey -> data | 2B sigLen | 'sigLen'B signature|
      * @param apdubuf APDU buffer
-     * @param offset data offset
-     * @param dataLen data length
-     * @param nonce none byte array
-     * @param nonceOff nonce offset
-     * @param nonceLen nonce length
-     * @param dest destination array
-     * @param destOff destination offset
-     * @return signature length
+     * @param dataLen length of the data
+     * @return signature length (including the size of 'sigLen' - 2B)
+     */
+    short signApdu(byte[] apdubuf, short dataLen) {
+
+        short sigLen = cryptoOps.signECDSA(thisQuorumI, (short) 0, (short) thisQuorumI.length, apdubuf, (short) 0, dataLen,
+                apdubuf, (short) (dataLen + Consts.SHORT_SIZE), (ECPrivateKey) pair.getPrivate());
+
+
+        Util.setShort(apdubuf, dataLen, sigLen);
+        return (short) (Consts.SHORT_SIZE + sigLen);
+    }
+
+
+    /**
+     * S_CardPriv(quorumI, nonce, APDU buffer)
+     * @param apdubuf
+     * @param offset
+     * @param dataLen
+     * @param nonce
+     * @param nonceOff
+     * @param nonceLen
+     * @param dest
+     * @param destOff
+     * @return
      */
     short signApduBufferWNonce(byte[] apdubuf, short offset, short dataLen, byte[] nonce, short nonceOff,
                                short nonceLen, byte[] dest, short destOff) {
 
-        short len = cryptoOps.computeECDSASignatureWNonce(apdubuf, offset, dataLen, nonce, nonceOff, nonceLen, dest,
-                (short) (destOff + 2), (ECPrivateKey) pair.getPrivate());
+        short len = cryptoOps.signECDSA(thisQuorumI, (short) 0, (short) thisQuorumI.length, nonce, nonceOff, nonceLen,
+                apdubuf, offset, dataLen, dest, (short) (destOff + 2), (ECPrivateKey) pair.getPrivate());
+
         // set the signature length parameter
         Util.setShort(dest, destOff, len);
 
         return (short) (Consts.SHORT_SIZE + len);
     }
 
-    short PerformDHExchange(byte[] apdubuf, short cardPubKeyEphemOffset, short cardPubKeyEphemLength) {
-        return cryptoOps.PerformECDHExchange(apdubuf, cardPubKeyEphemOffset, cardPubKeyEphemLength);
+    short exchangeKey(byte[] src, short srcOffset, short srcLength, byte[] dest, short destOffset) {
+        return cryptoOps.ExchangeKey(src, srcOffset, srcLength, dest, destOffset);
     }
 
     short EncryptUsingAES(byte[] source, short sourceOffset, short dataLength, byte[] destination, short destinationOffset) {

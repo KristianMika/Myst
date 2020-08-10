@@ -4,7 +4,6 @@ import ds.ov2.bignat.Bignat;
 import mpc.Consts;
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.math.ec.ECPoint;
-import org.testng.internal.collections.Pair;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
@@ -17,12 +16,14 @@ import javax.smartcardio.ResponseAPDU;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.interfaces.ECPublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 
 
 /**
@@ -233,18 +234,18 @@ public class CardMPCPlayer implements MPCPlayer {
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B short i | <HOST_ID_SIZE>B host's ID | signature
-     * Incoming packet: 65B RI | 2B signature Length | yB signature
+     * Incoming packet: 2B data Length | data | 2B signature Length | signature
      */
     private byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, i);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN_RETRIEVE_RI, hostPrivKey, (byte) 0x00, (byte) 0x00, Util.concat(packetData, hostId));
-        ResponseAPDU response = transmit(channel, cmd);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
         ///We do nothing with the key, as we just use the Aggregated R in the test cases
-        checkSW(response);
-        byte[] data = response.getData();
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
 
-        return parseAndVerifySignature(data, 0, 65, quorumIndex);
+        return response.getData();
     }
 
     private ResponseAPDU transmit(CardChannel channel, CommandAPDU cmd)
@@ -296,16 +297,33 @@ public class CardMPCPlayer implements MPCPlayer {
     }
 
     /**
+     * Creates PublicKey object from ECPoint.
+     *
+     * @param pubKeyEC public key as an ec point
+     * @return public key as a PublicKey object
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeySpecException
+     */
+    private PublicKey PublicKeyFromECpoint(ECPoint pubKeyEC) throws NoSuchAlgorithmException, InvalidKeySpecException {
+
+        BigInteger x = pubKeyEC.normalize().getXCoord().toBigInteger();
+        BigInteger y = pubKeyEC.normalize().getYCoord().toBigInteger();
+        ECNamedCurveSpec params = new ECNamedCurveSpec("SecP256r1", mpcGlobals.curve, mpcGlobals.G, mpcGlobals.n);
+        java.security.spec.ECPoint w = new java.security.spec.ECPoint(x, y);
+        KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
+       return keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
+    }
+
+    /**
      * Performs EC Diffie Hellman exchange and computes a shared secret.
      *
+     * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - public key length | <HOST_ID_SIZE>B host's ID | public key |  signature
+     * Incoming packet: 2B data length | data | 2B signature length | signature
      * @param quorumIndex quorum Index
      * @param hostId      host's ID
      * @param hostPrivKey host's private key used for signature
      * @return a shared secret as a byte array
      * @throws Exception if fails
-     *                   <p>
-     *                   Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - ephem key length | <HOST_ID_SIZE>B host's ID | ephem key |  signature
-     *                   Incoming packet:
      */
     byte[] performDHExchange(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
 
@@ -322,34 +340,20 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_ECDH_EXCHANGE, hostPrivKey, (byte) 0x00, (byte) 0x00,
                 Util.concat(Util.concat(packetData, hostId), ephemPubKeyEnc));
 
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
-        byte[] responseData = response.getData();
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
 
-        short keyLength = Util.getShort(responseData, 0);
-        short sigLen = Util.getShort(responseData, 2 + keyLength);
-        // verify signature
-        byte[] signature = Arrays.copyOfRange(responseData, 2 + keyLength + 2, 2 + keyLength + 2 + sigLen);
-        byte[] data = Arrays.copyOfRange(responseData, 0, 2 + keyLength);
-        if (!verifyECDSASignature(data, signature, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
-            throw new SecurityException("Signature verification failed");
-        }
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
 
         // reconstruct the card's public key
-        byte[] receivedPubKey = Arrays.copyOfRange(data, 2, 2 + keyLength);
-        ECPoint receivedECPoint = Util.ECPointDeSerialization(mpcGlobals.curve, receivedPubKey, 0);  // Store Pub
+        byte[] receivedPubKey = response.getData();
+        ECPoint cardPubKeyEC = Util.ECPointDeSerialization(mpcGlobals.curve, receivedPubKey, 0);
 
-        BigInteger x = receivedECPoint.normalize().getXCoord().toBigInteger();
-        BigInteger y = receivedECPoint.normalize().getYCoord().toBigInteger();
-
-        ECNamedCurveSpec params = new ECNamedCurveSpec("SecP256r1", mpcGlobals.curve, mpcGlobals.G, mpcGlobals.n);
-        java.security.spec.ECPoint w = new java.security.spec.ECPoint(x, y);
-        KeyFactory keyFactory = KeyFactory.getInstance("EC");
-        PublicKey ecPubKey = keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
+        PublicKey cardPubKey = PublicKeyFromECpoint(cardPubKeyEC);
 
         KeyAgreement agreement = KeyAgreement.getInstance("ECDH");
         agreement.init(kp.getPrivate());
-        agreement.doPhase(ecPubKey, true);
+        agreement.doPhase(cardPubKey, true);
         byte[] sharedSecret = agreement.generateSecret();
 
         MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -358,7 +362,6 @@ public class CardMPCPlayer implements MPCPlayer {
         md.update(receivedPubKey);
 
         return md.digest();
-
     }
 
     /**
@@ -402,7 +405,7 @@ public class CardMPCPlayer implements MPCPlayer {
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | <HOST_ID_SIZE>B host's ID | nonce | signature
-     * Incoming packet: 2B 0x9000 |card's nonce | signature(nonce, 0x900, card's nonce)
+     * Incoming packet: 2B nonce length | card's nonce | 2B signature length | signature
      */
     @Override
     public boolean GenKeyPair(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
@@ -412,44 +415,39 @@ public class CardMPCPlayer implements MPCPlayer {
 
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_INIT, hostPrivKey, (byte) 0x00, (byte) 0x00,
                 Util.concat(Util.concat(packetData, hostId), nonce));
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
-        // store (nonce, returned bytes) as a plaintext
-        saveSignature(Util.concat(nonce, response.getBytes()), 0, Consts.APDU_SIG_NONCE_SIZE * 2 + 2, quorumIndex);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        return checkSW(response);
+        storeResponseForVerification(new CardResponse(responseAPDU, nonce, quorumIndex), quorumIndex);
+
+        return true;
     }
 
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | <HOST_ID_SIZE>B host's ID | signature
-     * Incoming packet: 2B - data length | data (commitment) | signature
+     * Incoming packet: 2B - data length | data (commitment) | 2B signature length | signature
      */
     @Override
     public boolean RetrievePubKeyHash(short quorumIndex, byte[] host_id, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, hostPrivKey, (byte) 0x0, (byte) 0x0, Util.concat(packetData, host_id));
 
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
-        byte[] responseData = response.getData();
-        short dataLen = Util.getShort(responseData, 0);
-        short sigLen = Util.getShort(responseData, 2 + dataLen);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        byte[] pubKeyHash = Arrays.copyOfRange(responseData, 2, 2 + dataLen);
-        byte[] signature = Arrays.copyOfRange(responseData, 2 + dataLen + 2, 2 + dataLen + 2 + sigLen);
-        quorumsCtxMap.get(quorumIndex).pub_key_Hash = pubKeyHash;
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+
+        quorumsCtxMap.get(quorumIndex).pub_key_Hash = response.getData();
 
         // signature is verified after the public key is received
-        quorumsCtxMap.get(quorumIndex).signaturesToVerify.add(new Pair<>(pubKeyHash, signature));
+        storeResponseForVerification(response, quorumIndex);
 
-        return checkSW(response);
+        return checkSW(responseAPDU);
     }
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - player's index| 2B hash length |
      * <HOST_ID_SIZE>B host's ID | nonce | hash | signature
-     * Incoming packet: 2B 0x9000 | card's nonce | signature(nonce, 0x9000, card's nonce)
+     * Incoming packet: 2B nonce length | card's nonce | 2B signature length | signature
      */
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short id,
@@ -461,18 +459,16 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_COMMITMENT, quorumIndex, id, (short) hash_arr.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_STORE_COMMITMENT, hostPrivKey, (byte) 0x0, (byte) 0x0,
                 Util.concat(Util.concat(packetData, hostId), Util.concat(nonce, hash_arr)));
-        ResponseAPDU response = transmit(channel, cmd);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        checkSW(response);
-        // store (nonce, returned bytes) as a plaintext
-        saveSignature(Util.concat(nonce, response.getBytes()), 0, Consts.APDU_SIG_NONCE_SIZE * 2 + 2, quorumIndex);
-        return checkSW(response);
+        storeResponseForVerification(new CardResponse(responseAPDU, nonce, quorumIndex), quorumIndex);
+        return true;
     }
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - player's index| 2B key length |
      * <HOST_ID_SIZE>B host's ID | nonce | key | signature
-     * Incoming packet: 2B 0x9000 | card's nonce | signature(nonce, 0x9000, card's nonce)
+     * Incoming packet: 2B nonce length | card's nonce | 2B signature length | signature
      */
     @Override
     public boolean StorePubKey(short quorumIndex, short id,
@@ -484,55 +480,43 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_PUBKEY, quorumIndex, id, (short) pub_arr.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_STORE_PUBKEY, hostPrivKey, (byte) 0x0, (byte) 0x0,
                 Util.concat(Util.concat(packetData, hostId), Util.concat(nonce, pub_arr)));
-        ResponseAPDU response = transmit(channel, cmd);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        checkSW(response);
-        // verify (nonce, returned bytes) as a plaintext
-        parseAndVerifySignature(Util.concat(nonce, response.getBytes()), 0, Consts.APDU_SIG_NONCE_SIZE * 2 + 2, quorumIndex);
-        return checkSW(response);
+        CardResponse response = new CardResponse(responseAPDU, nonce, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
+        return true;
     }
 
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | <HOST_ID_SIZE>B host's ID | signature
-     * Incoming packet: 65B data (PubKey) | signature
+     * Incoming packet: 2B data length | 65B data (PubKey) | signature
      */
     @Override
     public byte[] RetrievePubKey(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey, MPCGlobals mpcGlobals) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, hostPrivKey, (byte) 0x0, (byte) 0x0, Util.concat(packetData, hostId));
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        byte[] responseData = response.getData();
-        byte[] data = Arrays.copyOfRange(responseData, 0, 65);
-        short sigLen = Util.getShort(responseData, 65);
-        byte[] signature = Arrays.copyOfRange(responseData, 65 + 2, 65 + 2 + sigLen);
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        byte[] data = response.getData();
 
-        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(mpcGlobals.curve, data, 0);  // Store Pub
+        ECPoint tmpPubKeyEC= Util.ECPointDeSerialization(mpcGlobals.curve, data, 0);
 
-        // set PublicKey object
-        BigInteger x = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getXCoord().toBigInteger();
-        BigInteger y = quorumsCtxMap.get(quorumIndex).pubKey.normalize().getYCoord().toBigInteger();
-        ECNamedCurveSpec params = new ECNamedCurveSpec("SecP256r1", mpcGlobals.curve, mpcGlobals.G, mpcGlobals.n);
-        java.security.spec.ECPoint w = new java.security.spec.ECPoint(x, y);
-        KeyFactory keyFactory = KeyFactory.getInstance("ECDSA");
-        quorumsCtxMap.get(quorumIndex).pubkeyObject = keyFactory.generatePublic(new java.security.spec.ECPublicKeySpec(w, params));
-        QuorumContext thisQContext = quorumsCtxMap.get(quorumIndex);
+        PublicKey tmpPubKeyObject = PublicKeyFromECpoint(tmpPubKeyEC);
 
-        // verifies INS_KEYGEN_RETRIEVE_PUBKEY signature
-        if (!verifyECDSASignature(data, signature, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
-            quorumsCtxMap.get(quorumIndex).pubkeyObject = null;
-            quorumsCtxMap.get(quorumIndex).pubKey = null;
-            throw new SecurityException("Signature verification failed");
-        }
+        response.verifySignature(tmpPubKeyObject);
+
+        // Public key is set only after the signature has been verified
+        quorumsCtxMap.get(quorumIndex).pubKey = tmpPubKeyEC;
+        quorumsCtxMap.get(quorumIndex).pubkeyObject = tmpPubKeyObject;
 
         // verify all signatures that have been stored since the beginning of the protocol run
-        for (Pair<byte[], byte[]> pair : quorumsCtxMap.get(quorumIndex).signaturesToVerify) {
-            if (!verifyECDSASignature(pair.first(), pair.second(), quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
-                throw new InvalidCardSignatureException();
-            }
+        for (CardResponse respToVerify : quorumsCtxMap.get(quorumIndex).responsesToVerify) {
+            respToVerify.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
         }
+        quorumsCtxMap.get(quorumIndex).responsesToVerify.clear();
+
         return data;
     }
 
@@ -545,15 +529,13 @@ public class CardMPCPlayer implements MPCPlayer {
             throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, quorumIndex);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, hostPrivKey, (byte) 0x0, (byte) 0x0, Util.concat(packetData, hostId));
-        ResponseAPDU response = transmit(channel, cmd);
-        byte[] responseData = response.getData();
-        checkSW(response);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        short yagg_len = Util.getShort(responseData, 0);
-        byte[] data = parseAndVerifySignature(responseData, 2, 2 + yagg_len, quorumIndex);
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
 
-        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(mpcGlobals.curve, data, 0); // Store aggregated pub
-        return checkSW(response);
+        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(mpcGlobals.curve, response.getData(), 0); // Store aggregated pub
+        return true;
     }
 
     /**
@@ -566,16 +548,17 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_ENCRYPT, quorumIndex, (short) plaintext.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_ENCRYPT, hostPrivKey, (byte) 0x0, (byte) 0x0,
                 Util.concat(Util.concat(packetData, hostId), plaintext));
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
-        byte[] data =  response.getData();
-        int sigOff = 2 + Util.getShort(data, 0);
-        return parseAndVerifySignature(data, 2, sigOff, quorumIndex);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
+
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
+
+        return response.getData();
     }
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B cipher length | <HOST_ID_SIZE>B host's ID | cipher | signature
-     * Incoming packet:
+     * Incoming packet: 2B data length | E_EphemKey(data)| IV | 2B signature Length | signature
      */
     @Override
     public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
@@ -584,46 +567,36 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_DECRYPT, hostPrivKey, (byte) 0x0, (byte) 0x00,
                 Util.concat(Util.concat(packetData, hostId), ciphertext));
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        byte[] responseData = response.getData();
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
+        byte[] data = response.getData();
 
-        // parse received packet to data and signature
-        short dataLength = Util.getShort(responseData, 0);
-        byte[] data = Arrays.copyOfRange(responseData, 0, 2 + dataLength + Consts.IV_LEN);
-        short sigLen = Util.getShort(responseData, 2 + dataLength + Consts.IV_LEN);
-        int sigOff = 2 + dataLength + Consts.IV_LEN + 2;
-        byte[] signature = Arrays.copyOfRange(responseData, sigOff, sigOff + sigLen);
-        if (!verifyECDSASignature(data, signature, quorumsCtxMap.get(quorumIndex).pubkeyObject)) {
-            throw new GeneralSecurityException("Bogus packet signature.");
-        }
+        byte[] cipher = Arrays.copyOfRange(data, 0, data.length - Consts.IV_LEN);
+        byte[] iv = Arrays.copyOfRange(data, data.length - Consts.IV_LEN, data.length);
 
-        return decryptAes(data, sharedSecret);
+        return decryptAes(cipher, iv, sharedSecret);
 
     }
 
     /**
-     * Decrypts aes cipher
-     *
-     * @param responseData input array
-     * @param sharedSecret byte array with a shared secret
-     * @return decrypted array
-     * @throws Exception if fails
+     * Decrypts cipherBytes using AES in CBC mode.
+     * @param cipherBytes bytes to be decrypted
+     * @param iv used for the first cipher block
+     * @param key used for decryption
+     * @return plaintext
+     * @throws Exception
      */
-    byte[] decryptAes(byte[] responseData, byte[] sharedSecret) throws Exception {
-        short cipherLength = Util.getShort(responseData, 0);
-        byte[] receivedCipher = Arrays.copyOfRange(responseData, 2, cipherLength + 2);
+    byte[] decryptAes(byte[] cipherBytes, byte[] iv,  byte[] key) throws Exception {
 
-        byte[] aesIv = Arrays.copyOfRange(responseData, 2 + cipherLength, 2 + cipherLength + 16);
-
-        IvParameterSpec ivSpec = new IvParameterSpec(aesIv);
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
 
         Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
-        SecretKeySpec aesKey = new SecretKeySpec(sharedSecret, 0, 16, "AES");
+        SecretKeySpec aesKey = new SecretKeySpec(key, 0, 16, "AES");
         cipher.init(Cipher.DECRYPT_MODE, aesKey, ivSpec);
 
-        byte[] decrypted = cipher.doFinal(receivedCipher);
+        byte[] decrypted = cipher.doFinal(cipherBytes);
 
         return removeISO9797_m2Padding(decrypted);
     }
@@ -667,16 +640,16 @@ public class CardMPCPlayer implements MPCPlayer {
     public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN, hostPrivKey, (byte) round, (byte) 0x00, Util.concat(Util.concat(packetData, hostId), Util.concat(plaintext, Rn)));
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
-        byte[] data =  response.getData();
-        int sigOff = 2 + Util.getShort(data, 0);
-        return parseAndVerifySignature(data, 2, sigOff, quorumIndex);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
+
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
+        return response.getData();
     }
 
     /**
      * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | 2B - num of bytes | <HOST_ID_SIZE>B host's ID | signature
-     * Incoming packet: 2B cipher len | xB E_sym(2B number of generated bytes | xB generated bytes) | signature
+     * Incoming packet: 2B data length | E_EphemKey(random_bytes) | IV | 2B signature length | signature
      */
     @Override
     public byte[] GenerateRandom(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey, short numOfBytes) throws Exception {
@@ -684,23 +657,21 @@ public class CardMPCPlayer implements MPCPlayer {
 
         byte[] packetData = preparePacketData(Consts.INS_GENERATE_RANDOM, quorumIndex, numOfBytes);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_GENERATE_RANDOM, hostPrivKey, (byte) 0x0, (byte) 0x00, Util.concat(packetData, hostId));
-        ResponseAPDU response = transmit(channel, cmd);
-        checkSW(response);
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
 
-        byte[] responseData = response.getData();
-        short cipherLen = Util.getShort(responseData, 0);
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
+        byte[] data = response.getData();
 
-        // TODO: USE CONSTANT VARIABLES FOR OFFSETS (WILL IMPLEMENT LATER)
+        byte[] cipher = Arrays.copyOfRange(data, 0, data.length - Consts.IV_LEN);
+        byte[] iv = Arrays.copyOfRange(data, data.length - Consts.IV_LEN, data.length);
+        byte[] randomBytes = decryptAes(cipher, iv, shared_secret);
 
-        byte[] data = parseAndVerifySignature(responseData, 0, 2 + cipherLen + 16, quorumIndex);
-
-        byte[] decryptedResp = decryptAes(data, shared_secret);
-
-        if (!(Util.getShort(decryptedResp, 0) == numOfBytes)) {
-            throw new GeneralSecurityException("First 2 bytes are not equal to the requested byte array size");
+        if (randomBytes.length != numOfBytes) {
+            throw new GeneralSecurityException("Card returned incorrect number of bytes.");
         }
 
-        return Arrays.copyOfRange(decryptedResp, 2, decryptedResp.length);
+        return randomBytes;
     }
 
     private boolean checkSW(ResponseAPDU response) throws MPCException {
@@ -708,7 +679,7 @@ public class CardMPCPlayer implements MPCPlayer {
             System.err.printf("Received error status: %02X.\n",
                     response.getSW());
             if (bFailOnAssert) {
-                handleReturnCode((short) response.getSW());
+                CardResponse.handleReturnCode((short) response.getSW());
             }
             return false;
         }
@@ -750,51 +721,14 @@ public class CardMPCPlayer implements MPCPlayer {
         return new CommandAPDU(Consts.CLA_MPC, function, p1, p2, packetDataWSignature);
     }
 
-    void saveSignature(byte[] apdu, int plainOff, int plainLen, short quorumIndex) {
-        byte[] plaintext = Arrays.copyOfRange(apdu, plainOff, plainOff + plainLen);
-        int sigLenOff = plainOff + plainLen;
-        int sigLen = Util.getShort(apdu, sigLenOff);
-        byte[] signature = Arrays.copyOfRange(apdu, sigLenOff + 2, sigLenOff + 2 + sigLen);
-        quorumsCtxMap.get(quorumIndex).signaturesToVerify.add(new Pair<>(plaintext, signature));
-    }
 
     /**
-     * Method for ECDSA signature verification
-     *
-     * @param data      plaintext
-     * @param signature signature
-     * @param pubkey    public key as PublicKey object
-     * @return verification result
-     * @throws GeneralSecurityException in case signature is in incorrect format
+     * Stores response for later signature verification.
+     * @param response response to be verified
+     * @param quorumIndex quorum index
      */
-    private boolean verifyECDSASignature(byte[] data, byte[] signature, PublicKey pubkey) throws GeneralSecurityException {
-        Signature ecdsaVerify = Signature.getInstance("SHA256withECDSA");
-        ecdsaVerify.initVerify(pubkey);
-        ecdsaVerify.update(data);
-        return ecdsaVerify.verify(signature);
-    }
-
-    /**
-     * Parses the packet and calls verifyECDSASignature()
-     * Data = xB Data | 2B sigLen | signature
-     *
-     * @param data    plaintext
-     * @param dataOff plaintext offset
-     * @param sigOff  signature offset
-     * @param quorumI quorum index
-     * @return byte array
-     * @throws InvalidCardSignatureException
-     */
-    private byte[] parseAndVerifySignature(byte[] data, int dataOff, int sigOff, short quorumI)
-            throws InvalidCardSignatureException, GeneralSecurityException {
-        short sigLen = Util.getShort(data, sigOff);
-        byte[] signature = Arrays.copyOfRange(data, sigOff + 2, sigOff + 2 + sigLen);
-        data = Arrays.copyOfRange(data, dataOff, sigOff);
-        PublicKey pubkey = quorumsCtxMap.get(quorumI).pubkeyObject;
-        if (!verifyECDSASignature(data, signature, pubkey)) {
-            throw new InvalidCardSignatureException();
-        }
-        return data;
+    void storeResponseForVerification(CardResponse response, short quorumIndex) {
+        quorumsCtxMap.get(quorumIndex).responsesToVerify.add(response);
     }
 
     private boolean TestNativeECAdd(CardChannel channel, ECPoint point1, ECPoint point2) throws Exception {
@@ -811,37 +745,7 @@ public class CardMPCPlayer implements MPCPlayer {
         return checkSW(response);
     }
 
-    /**
-     * Handles the return code from the card and throws a corresponding exception.
-     *
-     * @param retCode Code returned from the card.
-     * @throws MPCException
-     */
-    void handleReturnCode(short retCode) throws MPCException {
-        switch (retCode) {
 
-            case Consts.SW_SUCCESS:
-                return;
-
-            case Consts.SW_DUPLICATE_HOST_ID:
-                throw new DuplicateHostIdException();
-
-            case Consts.SW_HOSTNOTALLOWED:
-                throw new HostNotAllowedException();
-
-            case Consts.SW_INVALID_PACKET_SIGNATURE:
-                throw new InvalidHostSignatureException();
-
-            case Consts.SW_INVALID_HOST_ID:
-                throw new InvalidHostIdException();
-
-            case Consts.SW_FUNCTINNOTALLOWED:
-                throw new FunctionNotAllowedException();
-
-            default:
-                throw new MPCException(String.format("0x%02X",retCode));
-        }
-    }
 
     static class QuorumContext {
 
@@ -854,7 +758,7 @@ public class CardMPCPlayer implements MPCPlayer {
         PublicKey pubkeyObject;
         ECPoint AggPubKey;
         Bignat requestCounter;
-        List<Pair<byte[], byte[]>> signaturesToVerify;
+        List<CardResponse> responsesToVerify;
 
 
         QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
@@ -863,9 +767,10 @@ public class CardMPCPlayer implements MPCPlayer {
             this.numPlayers = numPlayers;
             requestCounter = new Bignat((short) 2, false);
             requestCounter.zero();
-            signaturesToVerify = new ArrayList<>();
+            responsesToVerify = new ArrayList<>();
         }
     }
+
 
     /* Debug only, not supported on real card
      private boolean RetrievePrivKey_DebugOnly(CardChannel channel)
