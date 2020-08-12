@@ -22,11 +22,12 @@ public class MPCApplet extends Applet {
     // TODO: Remove IS_BACKDOORED_EXAMPLE
     // TODO: remove boolean variables
     // TODO: Rename Bignat variables
-    // TODO: Capture all exceptions in process() and reset state after several detected exceptions to prevent repeated attacks
     // TODO: unify all member attributes under m_xxx naming and camelCase
     ECCurve m_curve;
     MPCCryptoOps m_cryptoOps = null;
     QuorumContext[] m_quorums = null;
+    private short exceptionCount;
+    private boolean isAppletLocked;
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -49,6 +50,9 @@ public class MPCApplet extends Applet {
         // Generate random unique card ID
         cardIDLong = new byte[Consts.CARD_ID_LONG_LENGTH];
         m_cryptoOps.randomData.generateData(cardIDLong, (short) 0, (short) cardIDLong.length);
+
+        exceptionCount = 0;
+        isAppletLocked = false;
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
@@ -78,7 +82,16 @@ public class MPCApplet extends Applet {
             return;
         }
 
-        if (apdubuf[ISO7816.OFFSET_CLA] == Consts.CLA_MPC) {
+        if (isAppletLocked) {
+            ISOException.throwIt(Consts.SW_APPLET_LOCKED);
+        }
+
+        if (apdubuf[ISO7816.OFFSET_CLA] != Consts.CLA_MPC) {
+            ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
+        }
+
+        exceptionCount += 1;
+        try {
             switch (apdubuf[ISO7816.OFFSET_INS]) {
                 case Consts.INS_PERF_SETSTOP:
                     PM.m_perfStop = Util.makeShort(apdubuf[ISO7816.OFFSET_CDATA], apdubuf[(short) (ISO7816.OFFSET_CDATA + 1)]);
@@ -88,7 +101,7 @@ public class MPCApplet extends Applet {
                 // Card bootstrapping
                 //
                 case Consts.INS_PERSONALIZE_INITIALIZE:
-                    // Generates initial secrets, set user authorization info and export card's public key 
+                    // Generates initial secrets, set user authorization info and export card's public key
                     Personalize_Init(apdu);
                     break;
 
@@ -113,12 +126,12 @@ public class MPCApplet extends Applet {
                     Quorum_Remove(apdu);
                     break;
                 case Consts.INS_QUORUM_RESET:
-                    // Reset all sensitive values in specified quorum (but keeps quorum settings) 
+                    // Reset all sensitive values in specified quorum (but keeps quorum settings)
                     Quorum_Reset(apdu);
                     break;
 
 
-                //    
+                //
                 // Key Generation
                 //
                 case Consts.INS_KEYGEN_INIT:
@@ -142,7 +155,7 @@ public class MPCApplet extends Applet {
 
                 //
                 // Key propagation to other quorums
-                //    
+                //
                 case Consts.INS_KEYPROPAGATION_RETRIEVE_PRIVKEY_SHARES:
                     KeyMove_RetrievePrivKeyShares(apdu);
                     break;
@@ -154,7 +167,7 @@ public class MPCApplet extends Applet {
                     break;
 
 
-                //    
+                //
                 // Encrypt and decrypt
                 //
                 case Consts.INS_ENCRYPT:
@@ -167,7 +180,7 @@ public class MPCApplet extends Applet {
                     ExchangeKey(apdu);
                     break;
 
-                //    
+                //
                 // Signing
                 //
                 case Consts.INS_SIGN_RETRIEVE_RI:
@@ -180,7 +193,7 @@ public class MPCApplet extends Applet {
                     Sign_GetCurrentCounter(apdu);
                     break;
 
-                //    
+                //
                 // Random number generation
                 //
                 case Consts.INS_GENERATE_RANDOM:
@@ -191,8 +204,21 @@ public class MPCApplet extends Applet {
                 default:
                     ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
             }
-        } else {
-            ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
+            exceptionCount -= 1;
+        }
+        catch (ISOException e) {
+            if (exceptionCount >= Consts.EXCEPTION_COUNT_LIMIT) {
+                LockApplet();
+            }
+
+            ISOException.throwIt(e.getReason());
+        }
+        catch (Exception e) {
+            if (exceptionCount >= Consts.EXCEPTION_COUNT_LIMIT) {
+                LockApplet();
+            }
+
+            ISOException.throwIt(ISO7816.SW_UNKNOWN);
         }
     }
 
@@ -321,11 +347,19 @@ public class MPCApplet extends Applet {
     }
 
     /**
+     * Resets all quorums and sets the isAppletLocked boolean.
+     * TODO: Use mechanisms designed for locking applets
+     */
+    private void LockApplet() {
+        Quorum_ResetAll();
+        isAppletLocked = true;
+    }
+
+    /**
      * Reset all quorum from QuorumContext[]
      */
-    void Quorum_ResetAll() {
+    private void Quorum_ResetAll() {
         for (short i = 0; i < (short) m_quorums.length; i++) {
-            // TODO: shall we verify before reset? m_quorums[i].VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Reset);
             m_quorums[i].Reset();
         }
     }

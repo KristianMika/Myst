@@ -92,3 +92,12 @@ class TransitionNotAllowedException extends MPCException {
     }
 }
 
+/**
+ * Used when a card returns the SW_APPLET_LOCKED error code.
+ */
+class AppletLockedException extends MPCException {
+    public AppletLockedException() {
+        super();
+    }
+}
+

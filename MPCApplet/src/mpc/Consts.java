@@ -97,6 +97,7 @@ public class Consts {
     public static final short SW_HOST_ALREADY_INITIALISED       = (short) 0x8018;
     public static final short SW_DH_EXCHANGE_SKIPPED            = (short) 0x8019;
     public static final short SW_DUPLICATE_HOST_ID              = (short) 0x801a;
+    public static final short SW_APPLET_LOCKED                  = (short) 0x801b;
 
 
 
@@ -218,6 +219,7 @@ public class Consts {
     // Global applet settings
     public static final short MAX_NUM_PLAYERS                   = (short) 15;   // Maximum number of allowed players
     public static final short MAX_NUM_HOSTS                     = (short) 5; // Maximum number of allowed hosts
+    public static final short EXCEPTION_COUNT_LIMIT             = (short) 6;
 
     public final static boolean COMPUTE_Y_ONTHEFLY = true; // on-the-fly computation of aggregated pulic key is only option
     public final static boolean PLAYERS_IN_RAM = true; // if true, player (participant) info is stored in RAM => faster, consuming RAM and will NOT survive card reset

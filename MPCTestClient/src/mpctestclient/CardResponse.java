@@ -136,6 +136,8 @@ public class CardResponse {
 
             case Consts.SW_FUNCTINNOTALLOWED:
                 throw new FunctionNotAllowedException();
+            case Consts.SW_APPLET_LOCKED:
+                throw new AppletLockedException();
 
             default:
                 throw new MPCException(String.format("0x%02X",retCode));
