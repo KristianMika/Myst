@@ -902,21 +902,30 @@ public class MPCApplet extends Applet {
     }
 
     /**
-     * Returns current signature counter expected for next signature round
+     * Returns the current signature counter.
      *
+     * Incoming packet: 1B - op code | 2B - short 4 | 2B - quorum_i | <HOST_ID_SIZE>B host's ID | signature
+     * Outgoing packet: 2B counter length | counter | 2B signature length | signature
      * @param apdu
      */
-    // TODO
     void Sign_GetCurrentCounter(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_SIGN_GET_CURRENT_COUNTER, apdu);
-        // Parse incoming apdu to obtain target quorum context
+
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
 
-        // Verify authorization
-        //quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
-        // Send signature share 
-        short dataLen = quorumCtx.Sign_GetCurrentCounter(apdubuf, (short) 0);
+        short hostIdOff = (short) (paramsOffset + Consts.PACKET_PARAMS_GETCURRENTCOUNTER_IN_HOSTID_OFFSET);
+
+        verifySignature(apdubuf, quorumCtx,
+                (short) (paramsOffset + Consts.PACKET_PARAMS_GETCURRENTCOUNTER_IN_SIGNATURE_OFFSET), hostIdOff);
+
+        quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_Sign_GetCurrentCounter, quorumCtx.FindHost(apdubuf, hostIdOff));
+
+        short dataLen = quorumCtx.Sign_GetCurrentCounter(apdubuf, Consts.PACKET_PARAMS_GETCURRENTCOUNTER_OUT_COUNTER_OFFSET);
+        Util.setShort(apdubuf, Consts.PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET, dataLen);
+
+        dataLen += Consts.SHORT_SIZE;
+        dataLen += quorumCtx.signApdu(apdubuf, dataLen);
 
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }

@@ -286,11 +286,10 @@ public class MPCCryptoOps {
         PM.check(PM.TRAP_CRYPTOPS_SIGN_1);
 
         // Check counter - must not repeat
-        if (!MPCApplet.bIsSimulator) { // Don't perform counter checks on simulator to enable for bogus test cases
-            if (quorumCtx.signature_counter.lesser(counter) == false) {
-                ISOException.throwIt(Consts.SW_INVALIDCOUNTER);
-            }
+        if (!quorumCtx.signature_counter.lesser(counter)) {
+            ISOException.throwIt(Consts.SW_INVALIDCOUNTER);
         }
+
 
         if (plaintextLength != (short) (Consts.SHARE_DOUBLE_SIZE_CARRY + Consts.SHARE_DOUBLE_SIZE_CARRY)) {
             ISOException.throwIt(Consts.SW_INVALIDMESSAGELENGTH);

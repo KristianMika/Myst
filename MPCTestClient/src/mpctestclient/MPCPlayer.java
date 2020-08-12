@@ -113,6 +113,19 @@ public interface MPCPlayer {
      */
     boolean Remove(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey) throws Exception;
 
+
+    /**
+     * Returns the current signature counter. A host has to submit a bigger value in the next sign request.
+     *
+     * @param quorumIndex quorum index
+     * @param hostId      host's id
+     * @param hostPrivKey hosts's private key used for packet signature
+     * @return Current signature counter as a BigInteger
+     * @throws Exception if fails
+     */
+    BigInteger GetCurrentCounter(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey) throws Exception;
+
+
     /**
      * @param quorumIndex quorum index
      * @param round       round counter

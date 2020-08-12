@@ -317,6 +317,11 @@ public class QuorumContext {
         return true;
     }
 
+    public BigInteger GetCurrentCounter() throws MPCException {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
+        return new BigInteger(1, signature_counter_Bn.as_byte_array());
+    }
+
     /**
      * Signs the byte[] plaintext
      *

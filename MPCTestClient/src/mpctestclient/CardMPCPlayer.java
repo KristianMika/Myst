@@ -612,6 +612,22 @@ public class CardMPCPlayer implements MPCPlayer {
         return Arrays.copyOfRange(plain, 0, len);
     }
 
+
+    /**
+     * Outgoing packet: 1B - op code | 2B - short 4 | 2B - quorum_i | <HOST_ID_SIZE>B host's ID | signature
+     * Incoming packet: 2B counter length | counter | 2B signature length | signature
+     */
+    @Override
+    public BigInteger GetCurrentCounter(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_SIGN_GET_CURRENT_COUNTER, quorumIndex);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN_GET_CURRENT_COUNTER, hostPrivKey, (byte) 0x0, (byte) 0x0, Util.concat(packetData, hostId));
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
+
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
+        return new BigInteger(1, response.getData());
+    }
+
     @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
 

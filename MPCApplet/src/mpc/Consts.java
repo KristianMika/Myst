@@ -204,7 +204,11 @@ public class Consts {
     public static final short PACKET_PARAMS_SET_USER_AUTH_PUBKEY = (short) (PACKET_PARAMS_SET_USER_AUTH_PUBKEY_ACLBYTE + 2);
     // GenerateSuccessApdu params
     public static final short PACKET_PARAMS_SUCCESS_APDU_NONCE_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
-
+    // GetCurrentCounter: incoming APDU
+    public static final short PACKET_PARAMS_GETCURRENTCOUNTER_IN_HOSTID_OFFSET = (short) (PACKET_PARAMS_CTXINDEX_OFFSET + SHORT_SIZE);
+    public static final short PACKET_PARAMS_GETCURRENTCOUNTER_IN_SIGNATURE_OFFSET = (short) (PACKET_PARAMS_GETCURRENTCOUNTER_IN_HOSTID_OFFSET + HOST_ID_SIZE);
+    // GetCurrentCounter: outgoing APDU
+    public static final short PACKET_PARAMS_GETCURRENTCOUNTER_OUT_COUNTER_OFFSET = (short) (PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET + SHORT_SIZE);
 
     // Performance-related debugging response codes
     public static final short PERF_DECRYPT                      = (short) 0x7770;

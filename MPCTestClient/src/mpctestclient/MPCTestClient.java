@@ -208,7 +208,7 @@ public class MPCTestClient {
             // Sign
             //
             PerformSignCache(mpcGlobals.players, perfResults, perfFile, hostDecryptSign);
-            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, perfResults, perfFile, runCfg, hostDecryptSign);
+            PerformSignature(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile, runCfg, hostDecryptSign);
             /*            
              // Repeated measurements if required
              long elapsed = -System.currentTimeMillis();
@@ -374,7 +374,7 @@ public class MPCTestClient {
             // Sign
             //
             PerformSignCache(mpcGlobals.players, perfResults, perfFile, hostDecryptSign);
-            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, perfResults, perfFile, runCfg, hostDecryptSign);
+            PerformSignature(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile, runCfg, hostDecryptSign);
 
             //
             // Generate random byte array
@@ -509,13 +509,13 @@ public class MPCTestClient {
             // Sign by a host with insufficient privileges
             //
             try {
-                PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, perfResults, perfFile, runCfg, hostKeyGen);
+                PerformSignature(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile, runCfg, hostKeyGen);
                 assert (false);
             } catch (HostNotAllowedException ignored) {
             }
 
             try {
-                PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, perfResults, perfFile, runCfg, hostQuorumManag);
+                PerformSignature(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile, runCfg, hostQuorumManag);
                 assert (false);
             } catch (HostNotAllowedException ignored) {
             }
@@ -745,9 +745,10 @@ public class MPCTestClient {
      * @param perfFile        currently not used
      * @throws Exception if signature fails
      */
-    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Map.Entry<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg, HostObj host) throws Exception {
+    static void PerformSignature(BigInteger msgToSign, ArrayList<MPCPlayer> playersList, ArrayList<Map.Entry<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg, HostObj host) throws Exception {
         // Sign EC Point
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
+        int counter = 1;
 
         if (!playersList.isEmpty()) {
             BigInteger sum_s_BI = new BigInteger("0");
@@ -755,6 +756,7 @@ public class MPCTestClient {
             boolean bFirstPlayer = true;
             for (MPCPlayer player : playersList) {
                 if (bFirstPlayer) {
+                    counter = player.GetCurrentCounter(QUORUM_INDEX, host.host_id, host.privateKeyObject).intValue() + 1;
                     sum_s_BI = player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig, host.host_id, host.privateKeyObject);
                     card_e_BI = player.GetE(QUORUM_INDEX);
                     bFirstPlayer = false;
