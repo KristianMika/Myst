@@ -219,7 +219,7 @@ public class Consts {
     // Global applet settings
     public static final short MAX_NUM_PLAYERS                   = (short) 15;   // Maximum number of allowed players
     public static final short MAX_NUM_HOSTS                     = (short) 5; // Maximum number of allowed hosts
-    public static final short EXCEPTION_COUNT_LIMIT             = (short) 6;
+    public static final short EXCEPTION_COUNT_LIMIT             = (short) 15;
 
     public final static boolean COMPUTE_Y_ONTHEFLY = true; // on-the-fly computation of aggregated pulic key is only option
     public final static boolean PLAYERS_IN_RAM = true; // if true, player (participant) info is stored in RAM => faster, consuming RAM and will NOT survive card reset

@@ -28,7 +28,7 @@ public class MPCRunConfig {
     public String cardName;
     FileOutputStream perfFile;
     byte[] appletAID = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x0a, (byte) 0x4d, (byte) 0x50, (byte) 0x43, (byte) 0x41, (byte) 0x70, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x74, (byte) 0x31};
-    CARD_TYPE testCardType = CARD_TYPE.PHYSICAL;
+    public CARD_TYPE testCardType = CARD_TYPE.PHYSICAL;
 
 
     public static MPCRunConfig getDefaultConfig() {

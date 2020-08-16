@@ -41,11 +41,9 @@ public class CardMPCPlayer implements MPCPlayer {
     MPCGlobals mpcGlobals;
     SecureRandom randomGen;
 
-    CardMPCPlayer(CardChannel channel, String logFormat, Long lastTransmitTime, boolean bFailOnAssert, MPCGlobals mpcGlobals) {
+    CardMPCPlayer(CardChannel channel, Long lastTransmitTime, MPCGlobals mpcGlobals) {
         this.channel = channel;
-        this.logFormat = logFormat;
         this.lastTransmitTime = lastTransmitTime;
-        this.bFailOnAssert = bFailOnAssert;
         this.quorumsCtxMap = new HashMap<>();
         this.mpcGlobals = mpcGlobals;
         this.randomGen = new SecureRandom();

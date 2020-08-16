@@ -9,8 +9,9 @@ public class MPCTestSimulatedCardInsufficientPrivileges {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 5;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_InsufficientPrivileges(runCfg, MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL);
+        runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
+
+        mpctestclient.MPCTestClient.InsufficientPrivilegesRun(runCfg);
     }
 
     @Test
@@ -18,8 +19,9 @@ public class MPCTestSimulatedCardInsufficientPrivileges {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 1;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_InsufficientPrivileges(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+        runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+
+        mpctestclient.MPCTestClient.InsufficientPrivilegesRun(runCfg);
     }
 
     @Test
@@ -27,8 +29,9 @@ public class MPCTestSimulatedCardInsufficientPrivileges {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 2;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_InsufficientPrivileges(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+        runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+
+        mpctestclient.MPCTestClient.InsufficientPrivilegesRun(runCfg);
     }
 
     @Test
@@ -36,7 +39,9 @@ public class MPCTestSimulatedCardInsufficientPrivileges {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 10;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_InsufficientPrivileges(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+        runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+
+        mpctestclient.MPCTestClient.InsufficientPrivilegesRun(runCfg);
     }
+
 }

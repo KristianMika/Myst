@@ -142,11 +142,7 @@ public class QuorumContext {
     private void KeyGen() throws NoSuchAlgorithmException {
         SecureRandom rnd = new SecureRandom();
         priv_key_BI = new BigInteger(256, rnd);
-        if (MPCTestClient._FIXED_PLAYERS_RNG) {
-            System.out.println("WARNING: _FIXED_PLAYERS_RNG == true");
-            // If true, don't generate random key, but use fixed one instead
-            priv_key_BI = new BigInteger("B346675518084623BC111CC53FF615B152A3F6D1585278370FA1BA0EA160237E".getBytes());
-        }
+
 
         pub_key_EC = mpcGlobals.G.multiply(priv_key_BI);
         players[CARD_INDEX_THIS].pubKeyValid = true;
@@ -380,9 +376,9 @@ public class QuorumContext {
 
         SecureRandom rnd = new SecureRandom();
         BigInteger rand_r = new BigInteger(256, rnd);
-        mpcGlobals.c1 = mpcGlobals.G.multiply(rand_r);
-        mpcGlobals.c2 = mpcGlobals.AggPubKey.multiply(rand_r).add(Util.ECPointDeSerialization(mpcGlobals.curve, plaintext, 0));
-        return Util.joinArray(mpcGlobals.c1.getEncoded(false), mpcGlobals.c2.getEncoded(false));
+        ECPoint c1 = mpcGlobals.G.multiply(rand_r);
+        ECPoint c2 = Yagg.multiply(rand_r).add(Util.ECPointDeSerialization(mpcGlobals.curve, plaintext, 0));
+        return Util.joinArray(c1.getEncoded(false), c2.getEncoded(false));
     }
 
     /**

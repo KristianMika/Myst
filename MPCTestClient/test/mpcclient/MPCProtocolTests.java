@@ -38,17 +38,15 @@ public class MPCProtocolTests {
         runCfg.thisCardID = 0;
         runCfg.numWholeTestRepeats = 1;
         runCfg.numSingleOpRepeats = 3;
-        
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
-        
-        // Execute 2x
-        runCfg.numWholeTestRepeats = 2;
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+        runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
 
-        // Execute 10x
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
+
+        runCfg.numWholeTestRepeats = 2;
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
+
         runCfg.numWholeTestRepeats = 10;
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
     }
 
     @Test
@@ -56,8 +54,8 @@ public class MPCProtocolTests {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 1;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
     }
 
     @Test
@@ -65,8 +63,8 @@ public class MPCProtocolTests {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 2;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
     }
 
     @Test
@@ -74,8 +72,8 @@ public class MPCProtocolTests {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 3;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
     }
 
     @Test
@@ -83,8 +81,8 @@ public class MPCProtocolTests {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 5;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
     }
 
     @Test
@@ -92,7 +90,7 @@ public class MPCProtocolTests {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 10;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.PHYSICAL);
+
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
     }
 }

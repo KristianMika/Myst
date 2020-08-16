@@ -10,7 +10,8 @@ public class MPCTestSimulatedCard10players {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = 10;
         runCfg.numSingleOpRepeats = 1;
-        // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg, MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL);
+        runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
+
+        mpctestclient.MPCTestClient.MPCRunDemo(runCfg);
     }
 }
