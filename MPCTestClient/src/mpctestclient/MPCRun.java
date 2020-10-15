@@ -387,6 +387,13 @@ public class MPCRun {
         }
     }
 
+    /**
+     * Sends hosts' public keys to be stored to a single player.
+     *
+     * @param player that will receive public keys
+     * @param host that submitted this request
+     * @throws Exception
+     */
     public void storeHostPubKeys(MPCPlayer player, Host host) throws Exception {
         for (Host hostToStore : hosts) {
             String operationName = "Set the host's authorisation pubkey (INS_PERSONALIZE_SET_USER_AUTH_PUBKEY)";
@@ -396,12 +403,24 @@ public class MPCRun {
         }
     }
 
+    /**
+     * Sends hosts' public keys to be stored to all players.
+     *
+     * @param host that submitted this request
+     * @throws Exception
+     */
     public void storeHostPubKeysAll(Host host) throws Exception {
         for (MPCPlayer player : players) {
             storeHostPubKeys(player, host);
         }
     }
 
+    /**
+     * Sends a request to remove quorum to a single player
+     * @param player that will receive the request
+     * @param host that submitted the request
+     * @throws Exception
+     */
     public void remove(MPCPlayer player, Host host) throws Exception {
         String operationName = "Removing quorum (INS_QUORUM_RESET)";
         System.out.format(format, operationName, player.Remove(QUORUM_INDEX, host.host_id, host.privateKeyObject));
@@ -414,6 +433,11 @@ public class MPCRun {
         }
     }
 
+    /**
+     * Setups all players and stores hosts' public keys
+     * @param host that submitted the request
+     * @throws Exception
+     */
     public void performSetupAll(Host host) throws Exception {
 
         short playerIndex = 0;
@@ -429,6 +453,11 @@ public class MPCRun {
         }
     }
 
+    /**
+     * Sends a disconnect request to a single player
+     * @param player that will receive the request
+     * @throws IOException
+     */
     public void disconnect(MPCPlayer player) throws IOException {
         String operationName = "Disconnecting from a player: ";
         player.disconnect();
@@ -436,19 +465,30 @@ public class MPCRun {
         perfLogger.writePerfLog(operationName, m_lastTransmitTime);
     }
 
+    /**
+     * Sends a disconnect request to all players
+     * @throws IOException
+     */
     public void disconnectAll() throws IOException {
         for (MPCPlayer player : players) {
             disconnect(player);
         }
     }
 
-    public byte[] encrypt(BigInteger msgToEncDec, Host host) throws Exception {
+    /**
+     * Sends a request for encryption to the first player.
+     * @param message message to be encrypted
+     * @param host that submitted the request
+     * @return ciphertext
+     * @throws Exception
+     */
+    public byte[] encrypt(BigInteger message, Host host) throws Exception {
         String operationName;
         Long combinedTime = (long) 0;
 
         MPCPlayer player = players.get(0);
-        byte[] plaintext = mpcGlobals.G.multiply(msgToEncDec).getEncoded(false);
-        operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString());
+        byte[] plaintext = mpcGlobals.G.multiply(message).getEncoded(false);
+        operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", message.toString());
 
         byte[] ciphertext = player.Encrypt(QUORUM_INDEX, plaintext, host.host_id, host.privateKeyObject);
         perfLogger.writePerfLog(operationName, m_lastTransmitTime);
@@ -461,6 +501,14 @@ public class MPCRun {
     }
 
 
+    /**
+     * Sends a request for decryption to a single player
+     * @param player that will receive the request
+     * @param ciphertext to be decrypted
+     * @param host that submitted this request
+     * @return decrypt share
+     * @throws Exception
+     */
     public ECPoint decrypt(MPCPlayer player, byte[] ciphertext, Host host) throws Exception {
 
         String operationName = "Decrypt (INS_DECRYPT)";
@@ -476,6 +524,14 @@ public class MPCRun {
         return xc1_EC;
     }
 
+    /**
+     * Sends requests for decryption to all players and combines theirs share.
+     *
+     * @param ciphertext to be decrypted
+     * @param host that submitted this request
+     * @return plaintext
+     * @throws Exception
+     */
     public ECPoint decryptAll(byte[] ciphertext, Host host) throws Exception {
         ECPoint c2 = Util.ECPointDeSerialization(mpcGlobals.curve, ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
 
@@ -510,6 +566,12 @@ public class MPCRun {
 
     }
 
+    /**
+     * Sends a request for caching Rij to a single player.
+     * @param player that will receive the request
+     * @param host that submitted this request
+     * @throws Exception
+     */
     public void signCache(MPCPlayer player, Host host) throws Exception {
         for (short round = 1; round <= mpcGlobals.Rands.length; round++) {
             if (mpcGlobals.Rands[round - 1] == null) {
@@ -541,10 +603,26 @@ public class MPCRun {
         System.out.println();
     }
 
+    /**
+     * Sends a sign request to a single player
+     * @param player that will receive the request
+     * @param host that submitted this request
+     * @param plaintext to be signed
+     * @param counter signature counter
+     * @return signature
+     * @throws Exception
+     */
     public BigInteger sign(MPCPlayer player, Host host, byte[] plaintext, int counter) throws Exception {
         return player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext, host.host_id, host.privateKeyObject);
     }
 
+    /**
+     * Sends sign requests to all players and combines theirs shares
+     * @param msgToSign message to be signed
+     * @param host that submitted this request
+     * @return signature s
+     * @throws Exception
+     */
     public BigInteger signAll(BigInteger msgToSign, Host host) throws Exception {
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
         int counter = 1;
