@@ -17,6 +17,7 @@ public class StateModel {
     public static final short STATE_KEYGEN_SHARESCOLLECTED = (short) 5;
     public static final short STATE_KEYGEN_KEYPAIRGENERATED = (short) 6;
     public static final short STATE_USER_PUBKEYS_SET = (short) 7;
+    public static final short STATE_SIGN_INITIATED = (short) 8;
     public static final short FNC_QuorumContext_GetXi = (short) 0xf001;
     public static final short FNC_QuorumContext_GetYi = (short) 0xf002;
     public static final short FNC_QuorumContext_Invalidate = (short) 0xf003;
@@ -34,6 +35,7 @@ public class StateModel {
     public static final short FNC_QuorumContext_Sign_RetrieveRandomRi = (short) 0xf012;
     public static final short FNC_QuorumContext_Sign = (short) 0xf013;
     public static final short FNC_QuorumContext_Sign_GetCurrentCounter = (short) 0xf014;
+    public static final short FNC_QuorumContext_Sign_Init = (short) 0xf019;
     public static final short FNC_QuorumContext_VerifyCallerAuthorization = (short) 0xf011;
     public static final short FNC_QuorumContext_GenerateRandomData = (short) 0xf012;
     public static final short FNC_QuorumContext_SetUserPubKey           = (short) 0xf017;
@@ -100,10 +102,21 @@ public class StateModel {
                 if (requestedFnc == FNC_QuorumContext_DecryptShare) return;
                 if (requestedFnc == FNC_QuorumContext_Sign_RetrieveRandomRi) return;
                 if (requestedFnc == FNC_QuorumContext_Sign) return;
+                if (requestedFnc == FNC_QuorumContext_Sign_Init) return;                   
                 if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter) return;
 
                 throw new FunctionNotAllowedException(); // if reached, function is not allowed in the given state
 
+            case STATE_SIGN_INITIATED:
+                if (requestedFnc == FNC_QuorumContext_Sign)  return;  
+                if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter)  return;
+                if (requestedFnc == FNC_QuorumContext_GenerateRandomData) return;
+                if (requestedFnc == FNC_QuorumContext_GetXi)  return;
+                if (requestedFnc == FNC_QuorumContext_GetY)  return;
+                if (requestedFnc == FNC_QuorumContext_Encrypt)  return;                   
+                if (requestedFnc == FNC_QuorumContext_DecryptShare)  return;  
+                
+                throw new FunctionNotAllowedException();
             default:
                 throw new FunctionNotAllowedException("Unknown state");
         }
@@ -138,6 +151,10 @@ public class StateModel {
                 if (newState == STATE_KEYGEN_KEYPAIRGENERATED) return newState;
                 throw new TransitionNotAllowedException();
             case STATE_KEYGEN_KEYPAIRGENERATED:
+                if (newState == STATE_SIGN_INITIATED) return newState;
+                throw new TransitionNotAllowedException();
+            case STATE_SIGN_INITIATED:
+                if (newState == STATE_KEYGEN_KEYPAIRGENERATED) return newState;
                 throw new TransitionNotAllowedException();
             default:
                 throw new TransitionNotAllowedException();

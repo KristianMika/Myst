@@ -61,6 +61,7 @@ public class Consts {
     //public final static byte BUGBUG_INS_SIGN_RETRIEVE_R		= (byte) 0x78; // BUGBUG: only for testing, remove 
     public final static byte INS_SIGN                           = (byte) 0x79;
     public final static byte INS_SIGN_GET_CURRENT_COUNTER       = (byte) 0x7a;
+    public final static byte INS_SIGN_INIT                      = (byte) 0x7b;
 
 
     //Low level Operations

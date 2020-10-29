@@ -125,7 +125,16 @@ public interface MPCPlayer {
      */
     BigInteger GetCurrentCounter(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey) throws Exception;
 
-
+    /**
+     * Initiates signing
+     * 
+     * @param quorumIndex quorum index
+     * @param round       round counter
+     * @return            re-randomization factor t 
+     * @throws Exception if fails
+     */
+    BigInteger SignInit(short quorumIndex, int round, byte[] hostId, PrivateKey hostPrivKey) throws Exception;
+    
     /**
      * @param quorumIndex quorum index
      * @param round       round counter

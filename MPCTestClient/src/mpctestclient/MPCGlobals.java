@@ -27,7 +27,7 @@ public class MPCGlobals {
 
     public ECPoint c1;
     public ECPoint c2;
-    public ECPoint[] Rands;
+    public ECPoint[][] Rands;
 
 
     public MPCGlobals() {

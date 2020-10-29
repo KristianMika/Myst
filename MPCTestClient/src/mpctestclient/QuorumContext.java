@@ -36,6 +36,7 @@ public class QuorumContext {
     public BigInteger e_BI;
     public short signature_counter;
     public Bignat signature_counter_Bn;
+    public BigInteger signature_rerandomizer;
     public short num_commitments_count;
     public short num_pubkeys_count;
     public ECPoint Yagg;
@@ -317,6 +318,14 @@ public class QuorumContext {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
         return new BigInteger(1, signature_counter_Bn.as_byte_array());
     }
+    
+    public BigInteger SignInit(int round) throws MPCException {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_Init);
+        SecureRandom rng = new SecureRandom();
+        signature_rerandomizer = new BigInteger(256, rng);
+        state.MakeStateTransition(StateModel.STATE_SIGN_INITIATED);
+        return signature_rerandomizer;
+    }
 
     /**
      * Signs the byte[] plaintext
@@ -352,6 +361,8 @@ public class QuorumContext {
         //Gen s_i
 
         this.k_Bn = new BigInteger(PRF(roundBn, secret_seed));
+        this.k_Bn = this.k_Bn.multiply(signature_rerandomizer);
+        this.k_Bn = this.k_Bn.mod(mpcGlobals.n);
         BigInteger s_i_BI = this.k_Bn.subtract(e_BI.multiply(this.priv_key_BI));
         s_i_BI = s_i_BI.mod(mpcGlobals.n);
 

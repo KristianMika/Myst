@@ -60,7 +60,7 @@ public class MPCRun {
         String experimentID = String.format("%d", System.currentTimeMillis());
         perfLogger = new PerfLogger(new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID)));
 
-        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
+        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers][runCfg.numPlayers]; // TODO
         players.clear();
 
         setupHosts();
@@ -567,22 +567,6 @@ public class MPCRun {
     }
 
     /**
-     * Sends a request for caching Rij to a single player.
-     * @param player that will receive the request
-     * @param host that submitted this request
-     * @throws Exception
-     */
-    public void signCache(MPCPlayer player, Host host) throws Exception {
-        for (short round = 1; round <= mpcGlobals.Rands.length; round++) {
-            if (mpcGlobals.Rands[round - 1] == null) {
-                mpcGlobals.Rands[round - 1] = Util.ECPointDeSerialization(mpcGlobals.curve, player.Gen_Rin(QUORUM_INDEX, round, host.host_id, host.privateKeyObject), 0);
-            } else {
-                mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(Util.ECPointDeSerialization(mpcGlobals.curve, player.Gen_Rin(QUORUM_INDEX, round, host.host_id, host.privateKeyObject), 0));
-            }
-        }
-    }
-
-    /**
      * Subsequently, the host uses Algorithm 4.3 to compute the aggregate (Rj)
      * of the group elements (Algorithm 4.3) received from the ICs for a
      * particular j, and stores it for future use
@@ -590,30 +574,12 @@ public class MPCRun {
      * @throws Exception if generation fails
      */
     void signCacheAll(Host host) throws Exception {
-
-        Arrays.fill(mpcGlobals.Rands, null);
-
-        for (MPCPlayer player : players) {
-            signCache(player, host);
+        for(int round = 0; round < mpcGlobals.Rands.length; ++round){
+            for(int i = 0; i < players.size(); ++i) {
+                mpcGlobals.Rands[round][i] = Util.ECPointDeSerialization(mpcGlobals.curve, players.get(i).Gen_Rin(QUORUM_INDEX, (short) (round + 1), host.host_id, host.privateKeyObject), 0);
+                System.out.printf("Rands[%d][%d]%s\n", round, i, Util.bytesToHex(mpcGlobals.Rands[round][i].getEncoded(false)));
+            }
         }
-
-        for (int round = 1; round <= mpcGlobals.Rands.length; round++) {
-            System.out.format("Rands[%d]%s\n", round - 1, Util.bytesToHex(mpcGlobals.Rands[round - 1].getEncoded(false)));
-        }
-        System.out.println();
-    }
-
-    /**
-     * Sends a sign request to a single player
-     * @param player that will receive the request
-     * @param host that submitted this request
-     * @param plaintext to be signed
-     * @param counter signature counter
-     * @return signature
-     * @throws Exception
-     */
-    public BigInteger sign(MPCPlayer player, Host host, byte[] plaintext, int counter) throws Exception {
-        return player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext, host.host_id, host.privateKeyObject);
     }
 
     /**
@@ -627,16 +593,20 @@ public class MPCRun {
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
         int counter = 1;
 
-        BigInteger sum_s_BI = null;
-
-        for (MPCPlayer player : players) {
-            if (sum_s_BI == null) {
-                counter = player.GetCurrentCounter(QUORUM_INDEX, host.host_id, host.privateKeyObject).intValue() + 1;
-                sum_s_BI = sign(player, host, plaintext_sig, counter);
-            } else {
-                sum_s_BI = sum_s_BI.add(sign(player, host, plaintext_sig, counter));
-                sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
+        ECPoint nonce = mpcGlobals.curve.getInfinity();
+        for(int i = 0; i < players.size(); ++i) {
+            if(i == 0) {
+                counter = players.get(i).GetCurrentCounter(QUORUM_INDEX, host.host_id, host.privateKeyObject).intValue() + 1;
             }
+            BigInteger t = players.get(i).SignInit(QUORUM_INDEX, counter, host.host_id, host.privateKeyObject);
+            System.out.printf("Rerandomizer[%d] %s\n", i, Util.bytesToHex(t.toByteArray()));
+            nonce = nonce.add(mpcGlobals.Rands[counter - 1][i].multiply(t));
+        }
+        
+        BigInteger sum_s_BI = BigInteger.valueOf(0);
+        for(int i = 0; i < players.size(); ++i) {
+            sum_s_BI = sum_s_BI.add(players.get(i).Sign(QUORUM_INDEX, counter, nonce.getEncoded(false), plaintext_sig, host.host_id, host.privateKeyObject));
+            sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
         }
         return sum_s_BI;
     }

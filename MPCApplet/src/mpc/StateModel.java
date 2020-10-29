@@ -18,6 +18,7 @@ public class StateModel {
     public static final short STATE_KEYGEN_SHARESCOLLECTED              = (short) 5;
     public static final short STATE_KEYGEN_KEYPAIRGENERATED             = (short) 6;
     public static final short STATE_USER_PUBKEYS_SET                    = (short) 7;
+    public static final short STATE_SIGN_INITIATED                      = (short) 8;
 
 
     public static final short FNC_QuorumContext_GetXi                   = (short) 0xf001;
@@ -39,6 +40,7 @@ public class StateModel {
     public static final short FNC_QuorumContext_Sign_RetrieveRandomRi   = (short) 0xf012;
     public static final short FNC_QuorumContext_Sign                    = (short) 0xf013;
     public static final short FNC_QuorumContext_Sign_GetCurrentCounter  = (short) 0xf014;
+    public static final short FNC_QuorumContext_Sign_Init               = (short) 0xf019;
     
     
     public static final short FNC_QuorumContext_VerifyCallerAuthorization = (short) 0xf015;
@@ -111,11 +113,24 @@ public class StateModel {
                 if (requestedFnc == FNC_QuorumContext_GetY)  return;
                 if (requestedFnc == FNC_QuorumContext_Encrypt)  return;                   
                 if (requestedFnc == FNC_QuorumContext_DecryptShare)  return;                   
-                if (requestedFnc == FNC_QuorumContext_Sign_RetrieveRandomRi) return;                   
-                if (requestedFnc == FNC_QuorumContext_Sign)  return;                   
+                if (requestedFnc == FNC_QuorumContext_Sign_RetrieveRandomRi) return;
+                if (requestedFnc == FNC_QuorumContext_Sign_Init) return;                   
                 if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter)  return;
                 if (requestedFnc == FNC_QuorumContext_GenerateRandomData) return;
 
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+                break;
+                
+            case STATE_SIGN_INITIATED:
+                if (requestedFnc == FNC_QuorumContext_Sign)  return;  
+                if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter)  return;
+                if (requestedFnc == FNC_QuorumContext_GenerateRandomData) return;
+                if (requestedFnc == FNC_QuorumContext_GetXi)  return;
+                if (requestedFnc == FNC_QuorumContext_GetY)  return;
+                if (requestedFnc == FNC_QuorumContext_Encrypt)  return;                   
+                if (requestedFnc == FNC_QuorumContext_DecryptShare)  return;  
+
+                
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
                 break;
 
@@ -161,6 +176,11 @@ public class StateModel {
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
                 break;
             case STATE_KEYGEN_KEYPAIRGENERATED:
+                if (newState == STATE_SIGN_INITIATED) return newState;
+                ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
+                break;
+            case STATE_SIGN_INITIATED:
+                if (newState == STATE_KEYGEN_KEYPAIRGENERATED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
                 break;
             default:

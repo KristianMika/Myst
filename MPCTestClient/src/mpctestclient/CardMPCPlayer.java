@@ -625,6 +625,16 @@ public class CardMPCPlayer implements MPCPlayer {
         response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
         return new BigInteger(1, response.getData());
     }
+    
+    @Override
+    public BigInteger SignInit(short quorumIndex, int round, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_SIGN_INIT, quorumIndex, (short) round);
+        CommandAPDU cmd = GenAndSignPacket(Consts.INS_SIGN_INIT, hostPrivKey, (byte) round, (byte) 0x00, Util.concat(packetData, hostId));
+        ResponseAPDU responseAPDU = transmit(channel, cmd);
+        CardResponse response = new CardResponse(responseAPDU, quorumIndex);
+        response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
+        return new BigInteger(1, response.getData());
+    }
 
     @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte[] hostId, PrivateKey hostPrivKey) throws Exception {

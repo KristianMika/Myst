@@ -24,6 +24,7 @@ public class QuorumContext {
     public Bignat signature_counter = null;
     public short signature_counter_short = 0;
     public byte[] signature_secret_seed = null;
+    public Bignat signature_rerandomizer = null;
     // Distributed keypair generation share
     ECCurve theCurve = null;
     short host_count;
@@ -47,6 +48,7 @@ public class QuorumContext {
     public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOps cryptoOperations, short thisQuorumI) {
         cryptoOps = cryptoOperations;
         signature_counter = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        signature_rerandomizer = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_PERSISTENT, eccfg.bnh);
         signature_secret_seed = new byte[Consts.SECRET_SEED_SIZE];
 
         // Stores this quorum index as a byte array
@@ -461,10 +463,19 @@ public class QuorumContext {
         signature_counter_short = counter;
         return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(signature_counter_short), signature_secret_seed, buffer, bufferOffset);
     }
+    
+    public short SignInit(Bignat counter, byte[] outputArray, short outputBaseOffset) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_Init);
+        short len = cryptoOps.SignInit(this, counter, outputArray, outputBaseOffset);
+        state.MakeStateTransition(StateModel.STATE_SIGN_INITIATED);
+        return len;
+    }
 
     public short Sign(Bignat counter, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
-        return cryptoOps.Sign(this, counter, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);
+        short len = cryptoOps.Sign(this, counter, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
+        return len;
     }
 
     public short Sign_GetCurrentCounter(byte[] outputArray, short outputBaseOffset) {

@@ -108,6 +108,12 @@ class SimulatedMPCPlayer implements MPCPlayer {
         quorums.get(quorumIndex).VerifyCallerAuthorization(StateModel.FNC_QuorumContext_Sign_GetCurrentCounter, hostId);
         return quorums.get(quorumIndex).GetCurrentCounter();
     }
+    
+    @Override
+    public BigInteger SignInit(short quorumIndex, int round, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
+        quorums.get(quorumIndex).VerifyCallerAuthorization(StateModel.FNC_QuorumContext_Sign_Init, hostId);
+        return quorums.get(quorumIndex).SignInit(round);
+    }
 
     @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext, byte[] hostId, PrivateKey hostPrivKey) throws MPCException, NoSuchAlgorithmException {

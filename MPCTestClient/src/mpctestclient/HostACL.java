@@ -80,6 +80,7 @@ public class HostACL {
                 // Sing functions - ACL_SIGN
             case mpc.StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi:
             case mpc.StateModel.FNC_QuorumContext_Sign:
+            case mpc.StateModel.FNC_QuorumContext_Sign_Init:
             case mpc.StateModel.FNC_QuorumContext_Sign_GetCurrentCounter:
                 if ((permissions & ACL_SIGN) != 0) return;
                 throw new HostNotAllowedException(); // if reached, host is not allowed to perform this operation

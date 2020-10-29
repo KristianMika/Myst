@@ -186,6 +186,9 @@ public class MPCApplet extends Applet {
                 case Consts.INS_SIGN_RETRIEVE_RI:
                     Sign_RetrieveRandomRi(apdu);
                     break;
+                case Consts.INS_SIGN_INIT:
+                    SignInit(apdu);
+                    break;
                 case Consts.INS_SIGN:
                     Sign(apdu);
                     break;
@@ -902,6 +905,32 @@ public class MPCApplet extends Applet {
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
 
+    
+    void SignInit(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short paramsOffset = GetOperationParamsOffset(Consts.INS_SIGN_INIT, apdu);
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
+        short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_IN_DATALENGTH_OFFSET));
+        short hostIdOff = (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_IN_HOSTID_OFFSET);
+        //Verify packet signature
+        
+        // verifySignature(apdubuf, quorumCtx, (short) (hostIdOff + Consts.HOST_ID_SIZE + dataLen), hostIdOff);
+        // Verify authorization
+
+        //quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_Sign, quorumCtx.FindHost(apdubuf, hostIdOff));
+
+        m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_IN_COUNTER_OFFSET));
+        dataLen = quorumCtx.SignInit(m_cryptoOps.temp_sign_counter, apdubuf, Consts.PACKET_PARAMS_SIGN_OUT_DATA_OFFSET);
+
+        Util.setShort(apdubuf, Consts.PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET, dataLen);
+        dataLen += Consts.SHORT_SIZE;
+
+        dataLen += quorumCtx.signApdu(apdubuf, dataLen);
+
+        apdu.setOutgoingAndSend((short) 0, dataLen);
+    }
+    
     /**
      * Second part of distributed signature scheme (Algorithm 4.7). All
      * KeyGen_xxx must be executed before.

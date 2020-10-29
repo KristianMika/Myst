@@ -18,7 +18,7 @@ public class MPCTestClient {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
         runCfg.numPlayers = 5;
-        runCfg.numWholeTestRepeats = 10;
+        runCfg.numWholeTestRepeats = 8;
         runCfg.cardName = "gd60";
 
         MPCRunDemo(runCfg);
@@ -140,27 +140,6 @@ public class MPCTestClient {
             } catch (HostNotAllowedException ignored) {
             }
         }
-
-
-        for (MPCPlayer player : mpcRun.players) {
-            try {
-                mpcRun.signCache(player, mpcRun.hostQuorumManag);
-                assert (false);
-            } catch (HostNotAllowedException ignored) {
-            }
-            mpcRun.signCache(player, mpcRun.hostDecryptSign);
-        }
-
-        byte[] plaintext = mpcRun.mpcGlobals.G.multiply(BigInteger.TEN).getEncoded(false);
-        for (MPCPlayer player : mpcRun.players) {
-            try {
-                mpcRun.sign(player, mpcRun.hostKeyGen, plaintext, 1);
-                assert (false);
-            } catch (HostNotAllowedException ignored) {
-            }
-
-        }
-
 
         for (MPCPlayer player : mpcRun.players) {
             try {
