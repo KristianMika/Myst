@@ -521,10 +521,14 @@ public class MPCApplet extends Applet {
         quorumCtx.InitAndGenerateKeyPair(true);
 
         // create the outgoing packet
+
         short len = createOutgoingSuccessApdu(apdubuf, quorumCtx,
                 (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENINIT_NONCE_OFFSET));
 
         apdu.setOutgoingAndSend((short) 0, len);
+
+
+
     }
 
     /**
@@ -830,11 +834,12 @@ public class MPCApplet extends Applet {
         short hostIndex = quorumCtx.FindHost(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_IN_HOSTID_OFFSET));
         quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_DecryptShare, hostIndex);
 
+        //#SIG_REMOVED
         byte[] encryptBuffer = new byte[256];
         dataLen = quorumCtx.DecryptShare(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_IN_DATA_OFFSET), dataLen, encryptBuffer);
 
-        dataLen = quorumCtx.EncryptUsingAES(encryptBuffer, (short) 0, dataLen, apdubuf, Consts.PACKET_PARAMS_DECRYPT_OUT_DATA_OFFSET);
-
+        //dataLen = quorumCtx.EncryptUsingAES(encryptBuffer, (short) 0, dataLen, apdubuf, Consts.PACKET_PARAMS_DECRYPT_OUT_DATA_OFFSET);
+        Util.arrayCopyNonAtomic(encryptBuffer, (short) 0, apdubuf, Consts.PACKET_PARAMS_DECRYPT_OUT_DATA_OFFSET, (short) encryptBuffer.length);
         Util.setShort(apdubuf, Consts.PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET, dataLen);
         dataLen += Consts.SHORT_SIZE;
 
@@ -1019,10 +1024,12 @@ public class MPCApplet extends Applet {
 
         quorumCtx.VerifyCallerAuthorization(StateModel.FNC_QuorumContext_GenerateRandomData, quorumCtx.FindHost(apdubuf, hostIdOff));
 
-        byte[] encr_buffer = new byte[numOfBytes];
-        short len = quorumCtx.GenerateRandom(encr_buffer, (short) 0, numOfBytes);
+        //#SIG_REMOVED
+        //byte[] encr_buffer = new byte[numOfBytes];
+        //short len = quorumCtx.GenerateRandom(encr_buffer, (short) 0, numOfBytes);
+        short len = quorumCtx.GenerateRandom(apdubuf, (short) 2, numOfBytes);
 
-        len = quorumCtx.EncryptUsingAES(encr_buffer, (short) 0, len, apdubuf, Consts.PACKET_PARAMS_GENERATERANDOM_OUT_DATA_OFFSET);
+        //len = quorumCtx.EncryptUsingAES(encr_buffer, (short) 0, len, apdubuf, Consts.PACKET_PARAMS_GENERATERANDOM_OUT_DATA_OFFSET);
         Util.setShort(apdubuf, Consts.PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET, len);
 
         len += Consts.SHORT_SIZE;
@@ -1044,7 +1051,8 @@ public class MPCApplet extends Applet {
         //correct the packet size for signature verification
         apdubuf[Consts.PACKET_SIZE_OFFSET] -= (byte) (sig_len + Consts.SHORT_SIZE);
         sisgOff += Consts.SHORT_SIZE;
-        quorumCtx.VerifyPacketSignature(apdubuf, hostIdOff, sisgOff, sig_len, (short) 0, (short) (sisgOff - Consts.SHORT_SIZE));
+        // #SIG_REMOVED
+        //quorumCtx.VerifyPacketSignature(apdubuf, hostIdOff, sisgOff, sig_len, (short) 0, (short) (sisgOff - Consts.SHORT_SIZE));
     }
 
     /**
@@ -1058,6 +1066,7 @@ public class MPCApplet extends Applet {
      */
     short createOutgoingSuccessApdu(byte[] apdubuf, QuorumContext quorumCtx, short nonceOffset) {
 
+        /*
         byte[] nonce = new byte[Consts.APDU_SIG_NONCE_SIZE];
         Util.arrayCopyNonAtomic(apdubuf, nonceOffset, nonce, (short) 0, Consts.APDU_SIG_NONCE_SIZE);
 
@@ -1066,10 +1075,17 @@ public class MPCApplet extends Applet {
         Util.setShort(apdubuf, Consts.PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET, len);
         len += Consts.SHORT_SIZE;
 
+
+        #SIG_REMOVED
         len += quorumCtx.signApduBufferWNonce(apdubuf, (short) 0, len, nonce, (short) 0, (short) nonce.length,
                 apdubuf, len);
 
-        return len;
+         */
+
+        //return len;
+
+        Util.setShort(apdubuf, Consts.PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET, (short) 2);
+        return (short) 2;
     }
 
 }

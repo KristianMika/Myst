@@ -107,7 +107,9 @@ public class Consts {
     public static final short SHORT_SIZE = (short) 2;
     public static final short BYTE_SIZE = (short) 1;
     public static final short HOST_ID_SIZE = 4;
-    public static final short APDU_SIG_NONCE_SIZE = (short) 10;
+    // SIG_REMOVED
+    //public static final short APDU_SIG_NONCE_SIZE = (short) 10;
+    public static final short APDU_SIG_NONCE_SIZE = (short) 0;
 
 
 

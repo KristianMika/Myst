@@ -562,7 +562,9 @@ public class MPCRun {
         System.out.format(format, "Decryption successful?:",
                 Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
 
-        assert (Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
+        if (!Arrays.equals(plaintext, plaintext_EC.getEncoded(false))) {
+            throw new MPCException("Decryption failed");
+        }
 
     }
 

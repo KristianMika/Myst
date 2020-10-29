@@ -440,6 +440,9 @@ public class MPCCryptoOps {
      * @param hostPubKey (ECPublicKey) host's public key
      */
     void VerifyECDSASignature(byte[] apdubuf, short signatureOffset,  short signatureLength, short dataOffset, short dataLength, ECPublicKey hostPubKey) {
+        /*
+        #SIG_REMOVED
+
         Signature ECDSAObject = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
         ECDSAObject.init(hostPubKey, Signature.MODE_VERIFY);
         boolean verResult = ECDSAObject.verify(apdubuf, dataOffset, dataLength, apdubuf, signatureOffset, signatureLength);
@@ -447,6 +450,7 @@ public class MPCCryptoOps {
         if (!verResult) {
             ISOException.throwIt(Consts.SW_INVALID_PACKET_SIGNATURE);
         }
+         */
     }
 
     /**

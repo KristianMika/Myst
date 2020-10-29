@@ -18,7 +18,7 @@ public class MPCTestClient {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
         runCfg.numPlayers = 5;
-        runCfg.numWholeTestRepeats = 8;
+        runCfg.numWholeTestRepeats = 1;
         runCfg.cardName = "gd60";
 
         MPCRunDemo(runCfg);

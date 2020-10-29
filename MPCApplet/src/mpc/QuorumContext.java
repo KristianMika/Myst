@@ -521,10 +521,14 @@ public class QuorumContext {
      */
     short signApdu(byte[] apdubuf, short dataLen) {
 
+        /*
+        #SIG_REMOVED
+
         short sigLen = cryptoOps.signECDSA(thisQuorumI, (short) 0, (short) thisQuorumI.length, apdubuf, (short) 0, dataLen,
                 apdubuf, (short) (dataLen + Consts.SHORT_SIZE), (ECPrivateKey) pair.getPrivate());
 
-
+         */
+        short sigLen = (short) 0;
         Util.setShort(apdubuf, dataLen, sigLen);
         return (short) (Consts.SHORT_SIZE + sigLen);
     }
@@ -544,10 +548,15 @@ public class QuorumContext {
      */
     short signApduBufferWNonce(byte[] apdubuf, short offset, short dataLen, byte[] nonce, short nonceOff,
                                short nonceLen, byte[] dest, short destOff) {
+        /*
+        #SIG_REMOVED
 
         short len = cryptoOps.signECDSA(thisQuorumI, (short) 0, (short) thisQuorumI.length, nonce, nonceOff, nonceLen,
                 apdubuf, offset, dataLen, dest, (short) (destOff + 2), (ECPrivateKey) pair.getPrivate());
 
+
+         */
+        short len = (short) 0;
         // set the signature length parameter
         Util.setShort(dest, destOff, len);
 

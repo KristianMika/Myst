@@ -560,8 +560,9 @@ public class CardMPCPlayer implements MPCPlayer {
      */
     @Override
     public byte[] Decrypt(short quorumIndex, byte[] ciphertext, byte[] hostId, PrivateKey hostPrivKey) throws Exception {
-        byte[] sharedSecret = performDHExchange(quorumIndex, hostId, hostPrivKey);
+        //byte[] sharedSecret = performDHExchange(quorumIndex, hostId, hostPrivKey);
 
+        //#SIG_REMOVED
         byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_DECRYPT, hostPrivKey, (byte) 0x0, (byte) 0x00,
                 Util.concat(Util.concat(packetData, hostId), ciphertext));
@@ -571,10 +572,11 @@ public class CardMPCPlayer implements MPCPlayer {
         response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
         byte[] data = response.getData();
 
-        byte[] cipher = Arrays.copyOfRange(data, 0, data.length - Consts.IV_LEN);
-        byte[] iv = Arrays.copyOfRange(data, data.length - Consts.IV_LEN, data.length);
+        //byte[] cipher = Arrays.copyOfRange(data, 0, data.length - Consts.IV_LEN);
+        //byte[] iv = Arrays.copyOfRange(data, data.length - Consts.IV_LEN, data.length);
 
-        return decryptAes(cipher, iv, sharedSecret);
+        // return decryptAes(cipher, iv, sharedSecret);
+        return data;
 
     }
 
@@ -677,25 +679,36 @@ public class CardMPCPlayer implements MPCPlayer {
      */
     @Override
     public byte[] GenerateRandom(short quorumIndex, byte[] hostId, PrivateKey hostPrivKey, short numOfBytes) throws Exception {
-        byte[] shared_secret = performDHExchange(quorumIndex, hostId, hostPrivKey);
+        //byte[] shared_secret = performDHExchange(quorumIndex, hostId, hostPrivKey);
 
+        //#SIG_REMOVED
         byte[] packetData = preparePacketData(Consts.INS_GENERATE_RANDOM, quorumIndex, numOfBytes);
         CommandAPDU cmd = GenAndSignPacket(Consts.INS_GENERATE_RANDOM, hostPrivKey, (byte) 0x0, (byte) 0x00, Util.concat(packetData, hostId));
+
         ResponseAPDU responseAPDU = transmit(channel, cmd);
 
         CardResponse response = new CardResponse(responseAPDU, quorumIndex);
         response.verifySignature(quorumsCtxMap.get(quorumIndex).pubkeyObject);
         byte[] data = response.getData();
 
+        /*
         byte[] cipher = Arrays.copyOfRange(data, 0, data.length - Consts.IV_LEN);
         byte[] iv = Arrays.copyOfRange(data, data.length - Consts.IV_LEN, data.length);
         byte[] randomBytes = decryptAes(cipher, iv, shared_secret);
+
+
 
         if (randomBytes.length != numOfBytes) {
             throw new GeneralSecurityException("Card returned incorrect number of bytes.");
         }
 
         return randomBytes;
+
+         */
+        if (data.length != numOfBytes) {
+            throw new GeneralSecurityException("Card returned incorrect number of bytes.");
+        }
+        return data;
     }
 
     private boolean checkSW(ResponseAPDU response) throws MPCException {
@@ -723,6 +736,8 @@ public class CardMPCPlayer implements MPCPlayer {
      */
     private CommandAPDU GenAndSignPacket(byte function, PrivateKey hostPrivKey, byte p1, byte p2, byte[] data) throws Exception {
         // Signature can be currently generated only if a packet is smaller than 256 bytes. For longer packets split signature and data into separate APDUs.
+        /*
+        #SIG_REMOVED
         if ((5 + data.length + 72) > 256) { // 72 is upper bound for signature length
             throw new IllegalArgumentException("Packet data length is too long.");
         }
@@ -742,7 +757,8 @@ public class CardMPCPlayer implements MPCPlayer {
         byte[] signature = ecdsaSign.sign();
 
         byte[] packetDataWSignature = Util.concat(data, Util.concat(Util.shortToByteArray(signature.length), signature));
-        return new CommandAPDU(Consts.CLA_MPC, function, p1, p2, packetDataWSignature);
+         */
+        return new CommandAPDU(Consts.CLA_MPC, function, p1, p2, data);
     }
 
 

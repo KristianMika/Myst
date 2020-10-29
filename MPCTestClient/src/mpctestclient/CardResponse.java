@@ -66,6 +66,8 @@ public class CardResponse {
     private void parseResponse(byte[] data) {
 
         short dataLen = Util.getShort(data, Consts.PACKET_PARAMS_APDU_OUT_DATALENGTH_OFFSET);
+        /*
+        #SIG_REMOVED
         short sigLen = Util.getShort(data, Consts.SHORT_SIZE + dataLen);
 
         this.signature = Arrays.copyOfRange(data, Consts.SHORT_SIZE + dataLen + Consts.SHORT_SIZE,
@@ -73,6 +75,8 @@ public class CardResponse {
 
 
         this.raw_data = Arrays.copyOfRange(data, 0, Consts.SHORT_SIZE + dataLen);
+
+         */
         this.data = Arrays.copyOfRange(data, Consts.SHORT_SIZE, Consts.SHORT_SIZE + dataLen);
 
     }
@@ -86,6 +90,8 @@ public class CardResponse {
      * @throws InvalidCardSignatureException in case of invalid signature
      */
     void verifySignature(PublicKey pubkey) throws GeneralSecurityException, InvalidCardSignatureException {
+        /*
+        #SIG_REMOVED
         Signature ecdsa = Signature.getInstance("SHA256withECDSA");
         ecdsa.initVerify(pubkey);
         ecdsa.update(Util.shortToByteArray(quorumI));
@@ -96,6 +102,8 @@ public class CardResponse {
         if (!(ecdsa.verify(signature))) {
             throw new InvalidCardSignatureException();
         }
+
+         */
     }
 
     /**
