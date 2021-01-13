@@ -43,3 +43,7 @@ hs_err_pid*
 /MPCTestClient/out/
 /.idea/
 *.iml
+
+# gradle
+.gradle
+build

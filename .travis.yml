@@ -14,20 +14,13 @@ before_install:
 
 
 install:
-    - cd MPCTestClient
-    - ant
-    - cd ../MPCApplet/
+    # build cap file
+    - cd MPCApplet/
     - ant -f jcbuild.xml build
+    - cd ..
 
-script:
-    - cd ../MPCTestClient
-    - ClassPath="out/test/MPCTestClient:out/production/MPCTestClient:libs/*:out/production/MPCApplet"
-    - java -ea -cp $ClassPath org.testng.TestNG test/testNGxmls/testng.xml
-    # various tests using jcardsim have to be run sequentially
-    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard1player.xml
-    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard2players.xml
-    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard3players.xml
-    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard5players.xml
-    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngSimCard10players.xml
-    - java -ea -noverify -cp $ClassPath org.testng.TestNG test/testNGxmls/testngInsufficientPrivileges.xml
-   
+script: 
+    # because of jcardsim, tests have to be run sequentially
+    - testFiles=$(grep --recursive --no-filename class MPCTestClient/src/test/java/mpcclient/ | awk '{ print $3 }')
+    - echo "info: found tests: ${testFiles}"
+    - for test in $testFiles; do ./gradlew -p MPCTestClient -Dtest.single=${testClass}; done

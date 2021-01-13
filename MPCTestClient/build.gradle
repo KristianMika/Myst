@@ -1,0 +1,33 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+mainClassName = 'mpctestclient.MPCTestClient'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile fileTree(dir: 'lib', include: '*.jar')
+    compile project(':MPCApplet')
+}
+
+jar {
+    baseName = 'myst-test-client'
+    version =  '0.1.0'
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+applicationDefaultJvmArgs = ['-noverify']
+
+dependencies {
+    testCompile group: 'org.testng', name: 'testng', version: '6.14.3'
+}
+
+test {
+    useTestNG {
+        preserveOrder true
+    }
+}
