@@ -23,7 +23,7 @@ public class Host {
     public ECPoint publicKey;
     public PrivateKey privateKeyObject;
 
-    Host(short[] permissions, MPCGlobals mpcGlobals) throws Exception {
+    public Host(short[] permissions, MPCGlobals mpcGlobals) throws Exception {
         this.permissions = compressACL(permissions);
         generateKeys(mpcGlobals);
         host_id = Arrays.copyOfRange(publicKey.getEncoded(false), 0, 4);
@@ -36,7 +36,7 @@ public class Host {
      * @throws NoSuchAlgorithmException
      * @throws InvalidKeySpecException
      */
-    void generateKeys(MPCGlobals mpcGlobals) throws NoSuchProviderException, NoSuchAlgorithmException, InvalidKeySpecException {
+    public void generateKeys(MPCGlobals mpcGlobals) throws NoSuchProviderException, NoSuchAlgorithmException, InvalidKeySpecException {
         SecureRandom random = new SecureRandom();
 
         privateKey = new BigInteger(256, random);
