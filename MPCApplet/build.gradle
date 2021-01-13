@@ -1,0 +1,15 @@
+apply plugin: 'java'
+
+jar {
+    baseName = 'myst-applet'
+    version =  '0.1.0'
+}
+
+dependencies {
+    compile fileTree(dir: 'lib', include: '*.jar')
+    compile fileTree(dir: '../MPCTestClient/lib', 
+                    include: 'jcardsim-3.0.5-SNAPSHOT.jar')
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8

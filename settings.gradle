@@ -1,0 +1,5 @@
+rootProject.name = 'Myst'
+include ':MPCApplet', ':MPCTestClient'
+
+project(':MPCApplet').projectDir=new File(settingsDir, 'MPCApplet')
+project(':MPCTestClient').projectDir=new File(settingsDir, 'MPCTestClient')
