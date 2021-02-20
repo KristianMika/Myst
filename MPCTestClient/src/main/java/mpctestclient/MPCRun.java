@@ -31,18 +31,18 @@ public class MPCRun {
     static byte[] MPC_APPLET_AID = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x0a, (byte) 0x4d,
             (byte) 0x50, (byte) 0x43, (byte) 0x41, (byte) 0x70, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x74, (byte) 0x31};
     public short QUORUM_INDEX = 0;
-    MPCRunConfig runCfg;
+    public MPCRunConfig runCfg;
 
     // Protocol run specific parameters
-    ArrayList<CardChannel> cardsList;
-    ArrayList<MPCPlayer> players = new ArrayList<>();
+    public ArrayList<CardChannel> cardsList;
+    public ArrayList<MPCPlayer> players = new ArrayList<>();
 
     // Hosts
-    Host hostFullPriv;
-    Host hostKeyGen;
-    Host hostQuorumManag;
-    Host hostDecryptSign;
-    ArrayList<Host> hosts;
+    public Host hostFullPriv;
+    public Host hostKeyGen;
+    public Host hostQuorumManag;
+    public Host hostDecryptSign;
+    public ArrayList<Host> hosts;
 
     // Crypto-objects
     MPCGlobals mpcGlobals = new MPCGlobals();
@@ -140,6 +140,10 @@ public class MPCRun {
         System.out.format(format, operationName, player.RetrievePubKeyHash(QUORUM_INDEX, host.host_id, host.privateKeyObject));
         perfLogger.writePerfLog(operationName, m_lastTransmitTime);
         combinedTime += m_lastTransmitTime;
+    }
+
+    public ECPoint getYagg() {
+        return mpcGlobals.AggPubKey;
     }
 
     /**
@@ -589,7 +593,7 @@ public class MPCRun {
      *
      * @throws Exception if generation fails
      */
-    void signCacheAll(Host host) throws Exception {
+    public void signCacheAll(Host host) throws Exception {
 
         Arrays.fill(mpcGlobals.Rands, null);
 
