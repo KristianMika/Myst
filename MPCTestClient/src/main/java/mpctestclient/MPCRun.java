@@ -645,6 +645,17 @@ public class MPCRun {
         return sum_s_BI;
     }
 
+    /**
+     * Returns previously returned ϵ by a card.
+     * @return ϵ as a hex string
+     */
+    public String getE() {
+        BigInteger card_e = players.get(0).GetE(QUORUM_INDEX);
+        if (card_e == null) {
+            throw new RuntimeException("The card has not returned E yet.");
+        }
+        return Util.bytesToHex(card_e.toByteArray());
+    }
 
     /**
      * Host has collected all the shares for the same j, can use Algorithm 4.3
